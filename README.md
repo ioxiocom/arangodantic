@@ -1,6 +1,10 @@
 # Arangodantic
 
 [![Build Status](https://travis-ci.com/digitalliving/arangodantic.svg?branch=master)](https://travis-ci.com/digitalliving/arangodantic)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![PyPI](https://img.shields.io/pypi/v/arangodantic)](https://pypi.org/project/arangodantic/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/arangodantic)](https://pypi.org/project/arangodantic/)
+[![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 Database models for ArangoDB using Pydantic base models.
 
