@@ -3,7 +3,7 @@ python:
   - 3.6
   - 3.7
   - 3.8
-  - 3.9
+  - 3.9-dev
 cache:
   pip: true
   directories:
@@ -12,7 +12,7 @@ cache:
 
 env:
   global:
-    - secure: ""
+    - secure: "KDApfjewoI7lwGnWOejYnBScd9ynJM8cmGMnIWV9KvXG3nl/kr1NqBJk9xp57+sG0FoJs6ZyynlOYElaO4bmpWdA/aZM1fEuNncJ30w6y1wLwKIERZlnyo0lSyj6Pk7WESftbAh9mpElvd1jIeYCUDBZdTCRwNM6gzFWgRLcsmAWkeBj67b2LroZ9XK45ab8yfSMYDwGPDE1fUEOthomc451+SI4Kaj5tlHvHHqjJeJy/nhXvxzAaHlrrWL7MIg9Sr/mI67qYXjIBeEFqtt6EXeId0yOxTKSmWSyc0Ye14X2mNMfQtyxn8/U5u2gGFVXd48SgOHquuNsUyVHmu/8Bde+0tDg4dgYIXgHuJrqY9SBIDXistIE35c0uF3tBNkmbSzOYWWpigsRhkFyqjB5urxgiUAZQ87zx3EGgq0XR+ZnBDOx9Q/ZupBjdXYJeTKoB+N31hYBcKKGiApGxPOG32xzrHnvPazwH2lsmeVmEyPgPChCf1OsbqORBMHOWuE7PzVBtXu7RPpsK7cF5uVA2KXfzfNTvLAbanBLIb1uGjHCvxxzzLLYuhnFcDO9lDubyr1b5VUGLDv/B2ZyREb/ZIigoR2A2SSeGcE2lOIjibQ9SU+3Qgaucy5+hmtcJK/cSQglC81zQqxMXl33hQ3fsLwGd2kneZ14wweFpUiR0i8="
 
 services:
   - docker

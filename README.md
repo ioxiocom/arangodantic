@@ -1,6 +1,6 @@
 # Arangodantic
 
-[![Build Status](https://travis-ci.org/digitalliving/arangodantic.svg?branch=master)](https://travis-ci.org/digitalliving/arangodantic)
+[![Build Status](https://travis-ci.com/digitalliving/arangodantic.svg?branch=master)](https://travis-ci.com/digitalliving/arangodantic)
 
 Database models for ArangoDB using Pydantic base models.
 
