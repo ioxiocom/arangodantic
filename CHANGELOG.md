@@ -8,6 +8,9 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+- Update README.md
+
 ## [0.0.2] - 2020-10-09
 
 ### Changed
