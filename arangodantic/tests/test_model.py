@@ -1,6 +1,8 @@
+from uuid import uuid4
+
 import pytest
 
-from arangodantic import CONF, ModelNotFoundError
+from arangodantic import CONF, ModelNotFoundError, UniqueConstraintError
 from arangodantic.tests.conftest import ExtendedIdentity, Identity, Link, SubModel
 
 
@@ -14,6 +16,42 @@ async def test_save_and_load_model(identity_collection):
 
     loaded_identity = await Identity.load(identity.key_)
     assert identity.key_ == loaded_identity.key_
+
+
+@pytest.mark.asyncio
+async def test_unique_constraint(identity_collection):
+    # Create unique index on the "name" field.
+    await Identity.get_collection().add_hash_index(fields=["name"], unique=True)
+
+    pre_generated_key = str(uuid4())
+
+    identity = Identity(name="John Doe", _key=pre_generated_key)
+    await identity.save()
+
+    assert identity.rev_ is not None
+
+    loaded_identity = await Identity.load(pre_generated_key)
+    assert loaded_identity.key_ == pre_generated_key
+
+    # Colliding primary key
+    identity_2 = Identity(name="Jane Doe", _key=pre_generated_key)
+    with pytest.raises(UniqueConstraintError):
+        await identity_2.save()
+
+    identity_2.key_ = None
+    await identity_2.save()
+
+    # Colliding "name"
+    identity_3 = Identity(name="Jane Doe")
+    with pytest.raises(UniqueConstraintError):
+        await identity_3.save()
+
+    identity_3.name = "Jane Jr. Doe"
+    await identity_3.save()
+
+    with pytest.raises(UniqueConstraintError):
+        identity_3.name = "Jane Doe"
+        await identity_3.save()
 
 
 @pytest.mark.asyncio
