@@ -11,6 +11,7 @@ and this project adheres to
 ### Changed
 - Update README.md
 - Support for unique constraint errors
+- Refactor handling of locks
 
 ## [0.0.2] - 2020-10-09
 

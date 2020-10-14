@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 
-from arangodantic import CONF, ModelNotFoundError, UniqueConstraintError
+from arangodantic import ModelNotFoundError, UniqueConstraintError
 from arangodantic.tests.conftest import ExtendedIdentity, Identity, Link, SubModel
 
 
@@ -90,7 +90,7 @@ async def test_locking(identity_collection):
     identity = Identity(name="James Doe")
     await identity.save()
 
-    second_lock = CONF.lock(Identity.get_lock_name(identity.key_))
+    second_lock = Identity.get_lock(identity.key_)
 
     # Lock and reload the identity
     async with identity.lock_and_reload():
