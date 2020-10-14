@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "arangodantic"
-version = "0.0.2"
+version = "0.0.3"
 description = "Database models for ArangoDB using Pydantic base models."
 authors = ["Digital Living International Ltd"]
 license = "BSD-3-Clause"

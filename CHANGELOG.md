@@ -8,10 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.0.3] - 2020-10-14
+
 ### Changed
 - Update README.md
 - Support for unique constraint errors
 - Refactor handling of locks
+- Bump version
 
 ## [0.0.2] - 2020-10-09
 
@@ -26,6 +29,7 @@ and this project adheres to
 
 - Initial release of Arangodantic
 
-[Unreleased]: https://github.com/digitalliving/arangodantic/compare/0.0.2...HEAD
+[Unreleased]: https://github.com/digitalliving/arangodantic/compare/0.0.3...HEAD
+[0.0.3]: https://github.com/digitalliving/arangodantic/compare/0.0.2...0.0.3
 [0.0.2]: https://github.com/digitalliving/arangodantic/compare/0.0.1...0.0.2
 [0.0.1]: https://github.com/digitalliving/arangodantic/releases/tag/0.0.1
