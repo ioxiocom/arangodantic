@@ -61,6 +61,18 @@ class Model(pydantic.BaseModel, ABC):
         return f"{CONF.lock_name_prefix}{cls.get_collection_name()}_{key}"
 
     @classmethod
+    def get_lock(cls, key: str):
+        """
+        Get a named lock corresponding to an instance of this class with a given key.
+
+        :raise ConfigError: Raised if lock is not configured.
+        """
+        lock_name = cls.get_lock_name(key)
+        if not CONF.lock:
+            raise ConfigError("Trying to get lock when no lock is configured")
+        return CONF.lock(lock_name)
+
+    @classmethod
     async def load(cls: Type[TModel], key: str) -> TModel:
         """
         Get a model based on the ArangoDB "_key".
@@ -95,10 +107,7 @@ class Model(pydantic.BaseModel, ABC):
         Context manager to acquire a lock for a model, load it and return it and upon
         exit release the lock.
         """
-        lock_name = cls.get_lock_name(key)
-        if not CONF.lock:
-            raise ConfigError("Trying to get lock when no lock is configured")
-        async with CONF.lock(lock_name):
+        async with cls.get_lock(key):
             yield await cls.load(key)
 
     @asynccontextmanager
@@ -107,10 +116,7 @@ class Model(pydantic.BaseModel, ABC):
         Context manager to lock the current model and reload it from the database.
         Upon exit release the lock.
         """
-        lock_name = self.get_lock_name(self.key_)
-        if not CONF.lock:
-            raise ConfigError("Trying to get lock when no lock is configured")
-        async with CONF.lock(lock_name):
+        async with self.get_lock(self.key_):
             await self.reload()
             yield
 
