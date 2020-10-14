@@ -10,6 +10,7 @@ and this project adheres to
 
 ### Changed
 - Update README.md
+- Support for unique constraint errors
 
 ## [0.0.2] - 2020-10-09
 

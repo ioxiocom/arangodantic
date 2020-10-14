@@ -8,9 +8,16 @@ from aioarangodb.collection import StandardCollection
 from aioarangodb.database import StandardDatabase
 from pydantic import Field
 
-from arangodantic.arangdb_error_codes import ERROR_ARANGO_DOCUMENT_NOT_FOUND
+from arangodantic.arangdb_error_codes import (
+    ERROR_ARANGO_DOCUMENT_NOT_FOUND,
+    ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED,
+)
 from arangodantic.configurations import CONF
-from arangodantic.exceptions import ConfigError, ModelNotFoundError
+from arangodantic.exceptions import (
+    ConfigError,
+    ModelNotFoundError,
+    UniqueConstraintError,
+)
 
 try:
     from contextlib import asynccontextmanager  # type: ignore
@@ -111,6 +118,9 @@ class Model(pydantic.BaseModel, ABC):
         """
         Save the document; either creates a new one or updates/replaces an existing
         document.
+
+        :raise UniqueConstraintViolated: Raised when there is a unique constraint
+        violation.
         """
 
         if not self.rev_:
@@ -126,12 +136,24 @@ class Model(pydantic.BaseModel, ABC):
                 # Let ArangoDB handle key generation
                 del data["_key"]
 
-            response = await self.get_collection().insert(document=data)
+            try:
+                response = await self.get_collection().insert(document=data)
+            except aioarangodb.exceptions.DocumentInsertError as ex:
+                if ex.error_code == ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED:
+                    raise UniqueConstraintError(ex.error_message)
+                raise
         else:
             # Update existing document
             await self._before_save(new=False, **kwargs)
             data = self.get_arangodb_data()
-            response = await self.get_collection().update(document=data, merge=False)
+            try:
+                response = await self.get_collection().update(
+                    document=data, merge=False
+                )
+            except aioarangodb.exceptions.DocumentUpdateError as ex:
+                if ex.error_code == ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED:
+                    raise UniqueConstraintError(ex.error_message)
+                raise
 
         self.key_ = response["_key"]
         self.rev_ = response["_rev"]

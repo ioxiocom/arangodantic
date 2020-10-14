@@ -8,5 +8,9 @@ class ModelNotFoundError(ArangodanticError):
     pass
 
 
+class UniqueConstraintError(ArangodanticError):
+    pass
+
+
 class ConfigError(ArangodanticError):
     pass
