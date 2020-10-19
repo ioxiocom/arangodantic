@@ -27,7 +27,7 @@ except ImportError:
 TModel = TypeVar("TModel", bound="Model")
 
 
-class ArangodanticConfig(pydantic.BaseModel):
+class ArangodanticCollectionConfig(pydantic.BaseModel):
     collection_name: Optional[str] = Field(
         None, description="Override the name of the collection to use"
     )
@@ -135,7 +135,7 @@ class Model(pydantic.BaseModel, ABC):
                 # Use generator to generate new key
                 self.key_ = str(CONF.key_gen())
 
-            await self._before_save(new=True, **kwargs)
+            await self.before_save(new=True, **kwargs)
 
             data = self.get_arangodb_data()
             if not self.key_:
@@ -150,13 +150,11 @@ class Model(pydantic.BaseModel, ABC):
                 raise
         else:
             # Update existing document
-            await self._before_save(new=False, **kwargs)
+            await self.before_save(new=False, **kwargs)
             data = self.get_arangodb_data()
             try:
-                response = await self.get_collection().update(
-                    document=data, merge=False
-                )
-            except aioarangodb.exceptions.DocumentUpdateError as ex:
+                response = await self.get_collection().replace(document=data)
+            except aioarangodb.exceptions.DocumentReplaceError as ex:
                 if ex.error_code == ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED:
                     raise UniqueConstraintError(ex.error_message)
                 raise
@@ -194,7 +192,9 @@ class Model(pydantic.BaseModel, ABC):
         Get a dictionary of the data to pass on to ArangoDB when inserting, updating and
         deleting the document.
         """
-        return self.dict(by_alias=True)
+        data = self.dict(by_alias=True)
+        data["_id"] = self.id_
+        return data
 
     @classmethod
     def get_db(cls) -> StandardDatabase:
@@ -203,10 +203,10 @@ class Model(pydantic.BaseModel, ABC):
     @classmethod
     @lru_cache()
     def get_collection_name(cls) -> str:
-        cls_config: ArangodanticConfig = getattr(
-            cls, "ArangodanticConfig", ArangodanticConfig()
+        cls_config: ArangodanticCollectionConfig = getattr(
+            cls, "ArangodanticConfig", ArangodanticCollectionConfig()
         )
-        if cls_config.collection_name:
+        if getattr(cls_config, "collection_name", None):
             collection = cls_config.collection_name
         else:
             collection = CONF.collection_generator(cls)  # type: ignore
@@ -241,7 +241,7 @@ class Model(pydantic.BaseModel, ABC):
             name, ignore_missing=ignore_missing, system=False
         )
 
-    async def _before_save(self, new: bool, **kwargs) -> None:
+    async def before_save(self, new: bool, **kwargs) -> None:
         """
         Function that's run before saving, should be overridden in subclasses if needed.
 
@@ -270,6 +270,7 @@ class EdgeModel(Model, ABC):
         deleting the document.
         """
         data = self.dict(by_alias=True, exclude={"from_", "to_"})
+        data["_id"] = self.id_
         if isinstance(self.from_, DocumentModel):
             data["_from"] = self.from_.id_
         else:
