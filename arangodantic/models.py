@@ -1,7 +1,7 @@
 import textwrap
 from abc import ABC
 from functools import lru_cache
-from typing import Optional, Type, TypeVar, Union
+from typing import Mapping, Optional, Type, TypeVar, Union
 
 import aioarangodb.exceptions
 import pydantic
@@ -258,23 +258,54 @@ class Model(pydantic.BaseModel, ABC):
         """
         Find instances of the class using an optional filter and limit.
 
-        :param filters: Filters as a dictionary of key-values that must match the
-        database record. E.g. {"name": "John Doe"}.
+        :param filters: Filters as a dictionary of either key-values that must match the
+        database record or key-expression mappings. E.g. {"name": "John Doe"} or
+        {"name": {"!=": "John Doe"}}
         :param count: If set to True, the total document count is included in
         the result cursor.
         :param limit: Limit returned records to a maximum amount.
         """
+
+        # List of supported operators mapped to a-z string representations that can be
+        # used safely in the names of bind_vars in AQL
+        comparison_operators = {
+            "<": "lt",
+            "<=": "lte",
+            ">": "gt",
+            ">=": "gte",
+            "!=": "ne",
+            "==": "eq",
+        }
+
+        # List of AQL FILTER expressions that will be added together using "AND"
         filter_list = []
         bind_vars = {"@collection": cls.get_collection_name()}
         if filters:
-            for i, (key, value) in enumerate(filters.items()):
-                # Use bind_vars also for field names for security reasons
-                filter_list.append(f"i.@field_{i}_key == @field_{i}_value")
-                bind_vars[f"field_{i}_key"] = key
+            for i, (key, expr) in enumerate(filters.items()):
+                if not isinstance(expr, Mapping):
+                    # Convert literal value to an explicit {"==": value} expression to
+                    # simplify next steps
+                    expr = {"==": expr}
 
-                if isinstance(value, Model):
-                    value = value.id_
-                bind_vars[f"field_{i}_value"] = value
+                for operator, value in expr.items():
+                    if operator not in comparison_operators:
+                        raise NotImplementedError(
+                            f"Support for '{operator}' not implemented"
+                        )
+
+                    # Generate unique names for the bind vars
+                    # Use bind_vars also for field names for security reasons
+                    key_bind_var = f"field_{i}_key"
+                    value_bind_var = f"field_{i}_{comparison_operators[operator]}"
+                    filter_list.append(
+                        f"i.@{key_bind_var} {operator} @{value_bind_var}"
+                    )
+                    bind_vars[key_bind_var] = key
+                    # Make it possible to compare a field to a model; handy for
+                    # example to match the "_from" or "_to" of an edge to a model.
+                    if isinstance(value, Model):
+                        value = value.id_
+                    bind_vars[value_bind_var] = value
 
         indented_and = "\n" + " " * 4 * 2 + "AND "
 
@@ -287,7 +318,7 @@ class Model(pydantic.BaseModel, ABC):
         filter_str += indented_and.join(filter_list)
 
         limit_str = ""
-        if limit:
+        if limit is not None:
             limit_str += f"LIMIT {int(limit)}"
 
         query = textwrap.dedent(
@@ -296,7 +327,7 @@ class Model(pydantic.BaseModel, ABC):
                 {filter_str}
                 {limit_str}
                 RETURN i
-        """
+            """
         ).format(filter_str=filter_str, limit_str=limit_str)
 
         cursor = await cls.get_db().aql.execute(query, count=count, bind_vars=bind_vars)

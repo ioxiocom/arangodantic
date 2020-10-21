@@ -1,3 +1,4 @@
+from asyncio import gather
 from uuid import uuid4
 
 import pytest
@@ -152,6 +153,60 @@ async def test_find(identity_collection):
 
     async with (await Identity.find({"name": "James Doe"}, count=True)) as cursor:
         assert len(cursor) == 2
+
+
+@pytest.mark.asyncio
+async def test_find_with_comparisons(identity_collection):
+    i_a = Identity(name="a")
+    i_a2 = Identity(name="a")
+    i_b = Identity(name="b")
+    i_c = Identity(name="c")
+
+    await gather(i_a.save(), i_a2.save(), i_b.save(), i_c.save())
+
+    cursor = await (Identity.find({"name": "a"}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name == "a"
+
+    cursor = await (Identity.find({"name": {"<": "a"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 0
+
+    cursor = await (Identity.find({"name": {"<=": "a"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name == "a"
+
+    cursor = await (Identity.find({"name": {">": "c"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 0
+
+    cursor = await (Identity.find({"name": {">": "b"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.name == "c"
+
+    cursor = await (Identity.find({"name": {">=": "b"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name in {"b", "c"}
+
+    cursor = await (Identity.find({"name": {">": "a", "<": "c"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.name == "b"
+
+    cursor = await (Identity.find({"name": "a", "_id": {"!=": i_a}}, count=True))
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.id_ == i_a2.id_
 
 
 @pytest.mark.asyncio
