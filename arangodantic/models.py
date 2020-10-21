@@ -1,3 +1,4 @@
+import textwrap
 from abc import ABC
 from functools import lru_cache
 from typing import Optional, Type, TypeVar, Union
@@ -13,6 +14,7 @@ from arangodantic.arangdb_error_codes import (
     ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED,
 )
 from arangodantic.configurations import CONF
+from arangodantic.cursor import ArangodanticCursor
 from arangodantic.exceptions import (
     ConfigError,
     ModelNotFoundError,
@@ -248,6 +250,73 @@ class Model(pydantic.BaseModel, ABC):
         :param new: Tells if the model is new (will be saved for the first time) or not.
         """
         pass
+
+    @classmethod
+    async def find(
+        cls, filters: dict = None, *, count=False, limit: Optional[int] = None
+    ) -> ArangodanticCursor:
+        """
+        Find instances of the class using an optional filter and limit.
+
+        :param filters: Filters as a dictionary of key-values that must match the
+        database record. E.g. {"name": "John Doe"}.
+        :param count: If set to True, the total document count is included in
+        the result cursor.
+        :param limit: Limit returned records to a maximum amount.
+        """
+        filter_list = []
+        bind_vars = {"@collection": cls.get_collection_name()}
+        if filters:
+            for i, (key, value) in enumerate(filters.items()):
+                # Use bind_vars also for field names for security reasons
+                filter_list.append(f"i.@field_{i}_key == @field_{i}_value")
+                bind_vars[f"field_{i}_key"] = key
+
+                if isinstance(value, Model):
+                    value = value.id_
+                bind_vars[f"field_{i}_value"] = value
+
+        indented_and = "\n" + " " * 4 * 2 + "AND "
+
+        filter_str = ""
+        if filter_list:
+            filter_str += "FILTER " + filter_list.pop(0)
+            if filter_list:
+                filter_str += indented_and
+
+        filter_str += indented_and.join(filter_list)
+
+        limit_str = ""
+        if limit:
+            limit_str += f"LIMIT {int(limit)}"
+
+        query = textwrap.dedent(
+            """
+            FOR i IN @@collection
+                {filter_str}
+                {limit_str}
+                RETURN i
+        """
+        ).format(filter_str=filter_str, limit_str=limit_str)
+
+        cursor = await cls.get_db().aql.execute(query, count=count, bind_vars=bind_vars)
+        return ArangodanticCursor(cls, cursor)
+
+    @classmethod
+    async def find_one(cls, filters: Optional[dict] = None):
+        """
+        Find at most one item matching the optional filters.
+
+        :param filters: Filters as a dictionary of key-values that must match the
+        database record. E.g. {"name": "John Doe"}.
+        :raises ModelNotFoundError: If no model matched the given filters.
+        """
+        async with (await cls.find(filters=filters, limit=1)) as results:
+            results = [x async for x in results]
+            try:
+                return results[0]
+            except IndexError:
+                raise ModelNotFoundError(f"No '{cls.__name__}' matched given filters")
 
 
 class DocumentModel(Model, ABC):
