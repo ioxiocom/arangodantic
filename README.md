@@ -132,6 +132,12 @@ if __name__ == "__main__":
 
 You might find [migrate-anything](https://github.com/cocreators-ee/migrate-anything) useful for creating and managing collections and indexes.
 
+## More examples
+- The [graph example](examples/graph_example.py) shows how arangodantic can be
+  used with graphs. Please note that graph related functionality is at the
+  moment really limited and will likely be extended later and might even be
+  restructured, so use with caution.
+
 ## License
 
 This code is released under the BSD 3-Clause license. Details in the

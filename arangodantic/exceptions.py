@@ -12,5 +12,9 @@ class UniqueConstraintError(ArangodanticError):
     pass
 
 
+class GraphNotFoundError(ArangodanticError):
+    pass
+
+
 class ConfigError(ArangodanticError):
     pass

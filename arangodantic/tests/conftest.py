@@ -10,7 +10,7 @@ from shylock import AsyncLock as Lock
 from shylock import ShylockAioArangoDBBackend
 from shylock import configure as configure_shylock
 
-from arangodantic import DocumentModel, EdgeModel, configure
+from arangodantic import DocumentModel, EdgeDefinition, EdgeModel, Graph, configure
 
 HOSTS = "http://localhost:8529"
 USERNAME = "root"
@@ -69,7 +69,7 @@ class ExtendedIdentity(Identity):
     class ArangodanticConfig:
         collection_name = "ext_identities"
 
-    async def _before_save(self, new: bool, extra: Optional[str] = None, **kwargs):
+    async def before_save(self, new: bool, extra: Optional[str] = None, **kwargs):
         self.extra = extra
 
 
@@ -77,6 +77,46 @@ class Link(EdgeModel):
     """Dummy Arangodantic edge model."""
 
     type: str
+
+
+class Person(DocumentModel):
+    """Documents describing persons."""
+
+    name: str
+
+
+class Relation(EdgeModel):
+    """Edge documents describing relation between people."""
+
+    kind: str
+
+
+class SecondaryRelation(EdgeModel):
+    """Edge documents describing a secondary relation between people."""
+
+    kind: str
+
+
+class RelationGraph(Graph):
+    class ArangodanticConfig:
+        edge_definitions = [
+            EdgeDefinition(
+                edge_collection=Relation,
+                from_vertex_collections=[Person],
+                to_vertex_collections=[Person],
+            )
+        ]
+
+
+class SecondaryRelationGraph(Graph):
+    class ArangodanticConfig:
+        edge_definitions = [
+            EdgeDefinition(
+                edge_collection=SecondaryRelation,
+                from_vertex_collections=[Person],
+                to_vertex_collections=[Person],
+            )
+        ]
 
 
 @pytest.fixture
@@ -98,3 +138,19 @@ async def link_collection(configure_db):
     await Link.ensure_collection()
     yield
     await Link.delete_collection()
+
+
+@pytest.fixture
+async def relation_graph(configure_db):
+    await RelationGraph.ensure_graph()
+    yield
+    await RelationGraph.delete_graph(ignore_missing=True, drop_collections=True)
+
+
+@pytest.fixture
+async def secondary_relation_graph(configure_db):
+    await SecondaryRelationGraph.ensure_graph()
+    yield
+    await SecondaryRelationGraph.delete_graph(
+        ignore_missing=True, drop_collections=True
+    )
