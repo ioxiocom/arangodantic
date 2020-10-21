@@ -265,7 +265,7 @@ class Model(pydantic.BaseModel, ABC):
 
         :param filters: Filters as a dictionary of either key-values that must match the
         database record or key-expression mappings. E.g. {"name": "John Doe"} or
-        {"name": {"!=": "John Doe"}}
+        {"name": {"!=": "John Doe"}}.
         :param count: If set to True, the total document count is included in
         the result cursor.
         :param limit: Limit returned records to a maximum amount.
@@ -307,7 +307,7 @@ class Model(pydantic.BaseModel, ABC):
         """
         Find at most one item matching the optional filters.
 
-        :param filters: Filters in same way as accepted by "find"
+        :param filters: Filters in same way as accepted by "find".
         :raises ModelNotFoundError: If no model matched the given filters.
         """
         async with (await cls.find(filters=filters, limit=1)) as results:
