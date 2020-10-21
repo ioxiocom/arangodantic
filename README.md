@@ -120,6 +120,20 @@ async def main():
     assert c.owner == company.owner
     print(f"Updated owner of company to '{company.owner!r}'")
 
+    # Let's explore the find functionality
+    # Note: You likely want to add indexes to support the queries
+    print("Finding companies owned by last name 'Doe'")
+    async with (await Company.find({"owner.last_name": "Doe"}, count=True)) as cursor:
+        print(f"Found {len(cursor)} companies")
+        async for found_company in cursor:
+            print(f"Company: {found_company.company_id}")
+
+    # Supported operators include: "==", "!=", "<", "<=", ">", ">="
+    found_company = await Company.find_one(
+        {"owner.last_name": "Doe", "_id": {"!=": company}}
+    )
+    print(f"Found the company {found_company.key_}")
+
 
 if __name__ == "__main__":
     # Starting from Python 3.7 ->

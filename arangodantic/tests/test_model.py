@@ -252,6 +252,22 @@ async def test_sub_models(extended_identity_collection):
 
 
 @pytest.mark.asyncio
+async def test_find_with_sub_models(extended_identity_collection):
+    sub_1 = SubModel(text="foo")
+    identity_1 = ExtendedIdentity(name="John Doe", sub=sub_1)
+    await identity_1.save()
+
+    sub_2 = SubModel(text="bar")
+    identity_2 = ExtendedIdentity(name="John Doe", sub=sub_2)
+    await identity_2.save()
+
+    async with (await ExtendedIdentity.find({"sub.text": "foo"}, count=True)) as cursor:
+        assert len(cursor) == 1
+        found = await cursor.next()
+        assert found.key_ == identity_1.key_
+
+
+@pytest.mark.asyncio
 async def test_edge_model(
     identity_collection, link_collection, identity_alice, identity_bob
 ):

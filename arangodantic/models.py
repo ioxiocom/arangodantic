@@ -1,7 +1,7 @@
 import textwrap
 from abc import ABC
 from functools import lru_cache
-from typing import Mapping, Optional, Type, TypeVar, Union
+from typing import Optional, Type, TypeVar, Union
 
 import aioarangodb.exceptions
 import pydantic
@@ -20,6 +20,7 @@ from arangodantic.exceptions import (
     ModelNotFoundError,
     UniqueConstraintError,
 )
+from arangodantic.utils import build_filters, filter_types
 
 try:
     from contextlib import asynccontextmanager  # type: ignore
@@ -253,7 +254,11 @@ class Model(pydantic.BaseModel, ABC):
 
     @classmethod
     async def find(
-        cls, filters: dict = None, *, count=False, limit: Optional[int] = None
+        cls,
+        filters: filter_types = None,
+        *,
+        count=False,
+        limit: Optional[int] = None,
     ) -> ArangodanticCursor:
         """
         Find instances of the class using an optional filter and limit.
@@ -266,46 +271,9 @@ class Model(pydantic.BaseModel, ABC):
         :param limit: Limit returned records to a maximum amount.
         """
 
-        # List of supported operators mapped to a-z string representations that can be
-        # used safely in the names of bind_vars in AQL
-        comparison_operators = {
-            "<": "lt",
-            "<=": "lte",
-            ">": "gt",
-            ">=": "gte",
-            "!=": "ne",
-            "==": "eq",
-        }
-
-        # List of AQL FILTER expressions that will be added together using "AND"
-        filter_list = []
-        bind_vars = {"@collection": cls.get_collection_name()}
-        if filters:
-            for i, (key, expr) in enumerate(filters.items()):
-                if not isinstance(expr, Mapping):
-                    # Convert literal value to an explicit {"==": value} expression to
-                    # simplify next steps
-                    expr = {"==": expr}
-
-                for operator, value in expr.items():
-                    if operator not in comparison_operators:
-                        raise NotImplementedError(
-                            f"Support for '{operator}' not implemented"
-                        )
-
-                    # Generate unique names for the bind vars
-                    # Use bind_vars also for field names for security reasons
-                    key_bind_var = f"field_{i}_key"
-                    value_bind_var = f"field_{i}_{comparison_operators[operator]}"
-                    filter_list.append(
-                        f"i.@{key_bind_var} {operator} @{value_bind_var}"
-                    )
-                    bind_vars[key_bind_var] = key
-                    # Make it possible to compare a field to a model; handy for
-                    # example to match the "_from" or "_to" of an edge to a model.
-                    if isinstance(value, Model):
-                        value = value.id_
-                    bind_vars[value_bind_var] = value
+        # List of AQL FILTER expressions that will be added together using "AND" and
+        # corresponding bind_vars
+        filter_list, bind_vars = build_filters(filters, instance_name="i")
 
         indented_and = "\n" + " " * 4 * 2 + "AND "
 
@@ -329,17 +297,17 @@ class Model(pydantic.BaseModel, ABC):
                 RETURN i
             """
         ).format(filter_str=filter_str, limit_str=limit_str)
+        bind_vars["@collection"] = cls.get_collection_name()
 
         cursor = await cls.get_db().aql.execute(query, count=count, bind_vars=bind_vars)
         return ArangodanticCursor(cls, cursor)
 
     @classmethod
-    async def find_one(cls, filters: Optional[dict] = None):
+    async def find_one(cls, filters: filter_types = None):
         """
         Find at most one item matching the optional filters.
 
-        :param filters: Filters as a dictionary of key-values that must match the
-        database record. E.g. {"name": "John Doe"}.
+        :param filters: Filters in same way as accepted by "find"
         :raises ModelNotFoundError: If no model matched the given filters.
         """
         async with (await cls.find(filters=filters, limit=1)) as results:
