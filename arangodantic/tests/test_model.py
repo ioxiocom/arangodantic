@@ -269,7 +269,10 @@ async def test_find_with_sub_models(extended_identity_collection):
 
 @pytest.mark.asyncio
 async def test_edge_model(
-    identity_collection, link_collection, identity_alice, identity_bob
+    identity_collection,
+    link_collection,
+    identity_alice: Identity,
+    identity_bob: Identity,
 ):
     link = Link(_from=identity_alice, _to=identity_bob, type="Knows")
     await link.save()
@@ -281,7 +284,10 @@ async def test_edge_model(
 
 @pytest.mark.asyncio
 async def test_find_one_edge_model(
-    identity_collection, link_collection, identity_alice, identity_bob
+    identity_collection,
+    link_collection,
+    identity_alice: Identity,
+    identity_bob: Identity,
 ):
     ab = Link(_from=identity_alice, _to=identity_bob, type="Knows")
     await ab.save()

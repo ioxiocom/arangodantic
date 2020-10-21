@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
-filter_types = Optional[Dict[str, Union[str, Dict[str, str]]]]
+filter_types = Optional[Dict[str, Any]]
 
 
 def build_filters(
