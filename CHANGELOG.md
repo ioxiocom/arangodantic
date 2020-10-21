@@ -8,6 +8,15 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.1.0] - 2020-10-22
+
+### Added
+- Added "find" and "find_one" methods to models.
+
+### Changed
+- Bump version to 0.1.0, project seems to be stable enough and has enough
+features for that. No breaking changes are however included.
+
 ## [0.0.4] - 2020-10-21
 
 ### Added
@@ -28,7 +37,6 @@ and this project adheres to
 ## [0.0.2] - 2020-10-09
 
 ### Changed
-
 - Update deployment credentials
 - Bump version
 
@@ -38,7 +46,8 @@ and this project adheres to
 
 - Initial release of Arangodantic
 
-[Unreleased]: https://github.com/digitalliving/arangodantic/compare/0.0.4...HEAD
+[Unreleased]: https://github.com/digitalliving/arangodantic/compare/0.1.0...HEAD
+[0.1.0]: https://github.com/digitalliving/arangodantic/compare/0.0.4...0.1.0
 [0.0.4]: https://github.com/digitalliving/arangodantic/compare/0.0.3...0.0.4
 [0.0.3]: https://github.com/digitalliving/arangodantic/compare/0.0.2...0.0.3
 [0.0.2]: https://github.com/digitalliving/arangodantic/compare/0.0.1...0.0.2
