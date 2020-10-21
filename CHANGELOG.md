@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [0.0.4] - 2020-10-19
+## [0.0.4] - 2020-10-21
 
 ### Added
 - Initial support for graphs
