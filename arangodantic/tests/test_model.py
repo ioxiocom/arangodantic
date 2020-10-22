@@ -209,8 +209,19 @@ async def test_find_with_comparisons(identity_collection):
             assert i.id_ == i_a2.id_
 
 
+@pytest.mark.parametrize(
+    "bad_str",
+    [
+        "'`´ \"$&=?+._",
+        "a..b",
+        ".a",
+        "b.",
+        "a..b",
+        "...a....b...",
+    ],
+)
 @pytest.mark.asyncio
-async def test_find_one(identity_collection):
+async def test_find_one(identity_collection, bad_str: str):
     i = Identity(name="John Doe")
     await i.save()
 
@@ -218,13 +229,11 @@ async def test_find_one(identity_collection):
 
     assert i.key_ == i_found.key_
 
-    horribly_bad_str = "'`´ \"$&=?+._"
+    with pytest.raises(ModelNotFoundError):
+        await Identity.find_one({"name": bad_str})
 
     with pytest.raises(ModelNotFoundError):
-        await Identity.find_one({"name": horribly_bad_str})
-
-    with pytest.raises(ModelNotFoundError):
-        await Identity.find_one({horribly_bad_str: "John Doe"})
+        await Identity.find_one({bad_str: "John Doe"})
 
 
 @pytest.mark.asyncio

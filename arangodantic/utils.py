@@ -1,6 +1,9 @@
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 filter_types = Optional[Dict[str, Any]]
+
+ONE_OR_MORE_DOTS_PATTERN = re.compile(r"\.+")
 
 
 def build_filters(
@@ -96,9 +99,15 @@ def split_field(name: str, prefix: str) -> Tuple[str, Dict[str, str]]:
     :param name: The name of the field.
     :param prefix: Prefix to use for all the generated bind_vars.
     """
+
+    # Treat consecutive dots as a single dot
+    name = ONE_OR_MORE_DOTS_PATTERN.sub(".", name)
+    # Skip any leading or trailing dots
+    name = name.strip(".")
+
     new_parts = []
     bind_vars = {}
-    parts = name.strip(".").split(".")
+    parts = name.split(".")
     for i, value in enumerate(parts):
         bind_var = f"{prefix}_{i}"
         new_parts.append(f"@{bind_var}")
