@@ -12,10 +12,13 @@ and this project adheres to
 
 ### Added
 - Add "find" and "find_one" methods to models.
+- Add "truncate_collection" method to models.
 
 ### Changed
+- The "delete_collection" method now raises DataSourceNotFound if the
+collection is missing and ignore_missing is set to False.
 - Bump version to 0.1.0, project seems to be stable enough and has enough
-features for that. No breaking changes are however included.
+features for that.
 
 ## [0.0.4] - 2020-10-21
 

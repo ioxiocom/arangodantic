@@ -8,6 +8,10 @@ class CursorNotFoundError(ArangodanticError):
     pass
 
 
+class DataSourceNotFound(ArangodanticError):
+    pass
+
+
 class ModelNotFoundError(ArangodanticError):
     pass
 
