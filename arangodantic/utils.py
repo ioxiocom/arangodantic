@@ -116,3 +116,10 @@ def split_field(name: str, prefix: str) -> Tuple[str, Dict[str, str]]:
     new_str = ".".join(new_parts)
 
     return new_str, bind_vars
+
+
+def remove_whitespace_lines(text: str) -> str:
+    """
+    Remove lines that only contains whitespace from a string.
+    """
+    return "\n".join([line for line in text.splitlines() if line.strip()])

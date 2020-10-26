@@ -21,7 +21,7 @@ from arangodantic.exceptions import (
     MultipleModelsFoundError,
     UniqueConstraintError,
 )
-from arangodantic.utils import FilterTypes, build_filters
+from arangodantic.utils import FilterTypes, build_filters, remove_whitespace_lines
 
 try:
     from contextlib import asynccontextmanager  # type: ignore
@@ -272,28 +272,32 @@ class Model(pydantic.BaseModel, ABC):
         :param limit: Limit returned records to a maximum amount.
         """
 
+        # The name we use to refer to the items we're looping over in the AQL FOR loop
+        instance_name = "i"
+
         # List of AQL FILTER expressions that will be added together using "AND" and
         # corresponding bind_vars
-        filter_list, bind_vars = build_filters(filters, instance_name="i")
-
-        indented_and = "\n" + " " * 4 * 2 + "AND "
+        filter_list, bind_vars = build_filters(filters, instance_name=instance_name)
 
         filter_str = ""
         if filter_list:
+            indented_and = "\n        AND "
             filter_str += "FILTER " + indented_and.join(filter_list)
 
         limit_str = ""
         if limit is not None:
             limit_str += f"LIMIT {int(limit)}"
 
-        query = textwrap.dedent(
-            """
-            FOR i IN @@collection
-                {filter_str}
-                {limit_str}
-                RETURN i
-            """
-        ).format(filter_str=filter_str, limit_str=limit_str)
+        query = remove_whitespace_lines(
+            textwrap.dedent(
+                f"""
+                FOR {instance_name} IN @@collection
+                    {{filter_str}}
+                    {{limit_str}}
+                    RETURN {instance_name}
+                """
+            ).format(filter_str=filter_str, limit_str=limit_str)
+        )
         bind_vars["@collection"] = cls.get_collection_name()
 
         cursor = await cls.get_db().aql.execute(query, count=count, bind_vars=bind_vars)
