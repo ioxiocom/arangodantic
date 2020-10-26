@@ -290,13 +290,15 @@ class Model(pydantic.BaseModel, ABC):
 
         query = remove_whitespace_lines(
             textwrap.dedent(
-                f"""
+                """
                 FOR {instance_name} IN @@collection
-                    {{filter_str}}
-                    {{limit_str}}
+                    {filter_str}
+                    {limit_str}
                     RETURN {instance_name}
                 """
-            ).format(filter_str=filter_str, limit_str=limit_str)
+            ).format(
+                instance_name=instance_name, filter_str=filter_str, limit_str=limit_str
+            )
         )
         bind_vars["@collection"] = cls.get_collection_name()
 
