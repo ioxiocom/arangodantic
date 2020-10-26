@@ -21,7 +21,7 @@ from arangodantic.exceptions import (
     MultipleModelsFoundError,
     UniqueConstraintError,
 )
-from arangodantic.utils import build_filters, filter_types
+from arangodantic.utils import FilterTypes, build_filters
 
 try:
     from contextlib import asynccontextmanager  # type: ignore
@@ -256,7 +256,7 @@ class Model(pydantic.BaseModel, ABC):
     @classmethod
     async def find(
         cls,
-        filters: filter_types = None,
+        filters: FilterTypes = None,
         *,
         count=False,
         limit: Optional[int] = None,
@@ -304,7 +304,7 @@ class Model(pydantic.BaseModel, ABC):
         return ArangodanticCursor(cls, cursor)
 
     @classmethod
-    async def find_one(cls, filters: filter_types = None, raise_on_multiple=False):
+    async def find_one(cls, filters: FilterTypes = None, raise_on_multiple=False):
         """
         Find at most one item matching the optional filters.
 

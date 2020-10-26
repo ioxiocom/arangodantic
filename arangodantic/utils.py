@@ -1,13 +1,13 @@
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-filter_types = Optional[Dict[str, Any]]
+FilterTypes = Optional[Dict[str, Any]]
 
 ONE_OR_MORE_DOTS_PATTERN = re.compile(r"\.+")
 
 
 def build_filters(
-    filters: filter_types, instance_name: str
+    filters: FilterTypes, instance_name: str
 ) -> Tuple[List[str], Dict[str, str]]:
     """
     Turn filters into a list of AQL FILTER statements (using bind_vars) and
