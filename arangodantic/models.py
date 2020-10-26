@@ -280,11 +280,7 @@ class Model(pydantic.BaseModel, ABC):
 
         filter_str = ""
         if filter_list:
-            filter_str += "FILTER " + filter_list.pop(0)
-            if filter_list:
-                filter_str += indented_and
-
-        filter_str += indented_and.join(filter_list)
+            filter_str += "FILTER " + indented_and.join(filter_list)
 
         limit_str = ""
         if limit is not None:
