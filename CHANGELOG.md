@@ -8,10 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [0.1.0] - 2020-10-22
+## [0.1.0] - 2020-10-26
 
 ### Added
-- Added "find" and "find_one" methods to models.
+- Add "find" and "find_one" methods to models.
 
 ### Changed
 - Bump version to 0.1.0, project seems to be stable enough and has enough

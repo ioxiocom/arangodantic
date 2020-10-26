@@ -122,7 +122,7 @@ async def main():
 
     # Let's explore the find functionality
     # Note: You likely want to add indexes to support the queries
-    print("Finding companies owned by last name 'Doe'")
+    print("Finding companies owned by a person with last name 'Doe'")
     async with (await Company.find({"owner.last_name": "Doe"}, count=True)) as cursor:
         print(f"Found {len(cursor)} companies")
         async for found_company in cursor:
