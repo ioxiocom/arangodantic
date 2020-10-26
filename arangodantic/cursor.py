@@ -1,4 +1,4 @@
-from typing import Type
+from typing import List, Type
 
 from aioarangodb.cursor import Cursor
 
@@ -46,3 +46,10 @@ class ArangodanticCursor:
 
     async def next(self):
         return self.cls(**(await self.cursor.next()))
+
+    async def to_list(self) -> List:
+        """
+        Convert the cursor to a list.
+        """
+        async with self as cursor:
+            return [i async for i in cursor]

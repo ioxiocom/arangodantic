@@ -134,8 +134,7 @@ async def test_find(identity_collection):
     i_3 = Identity(name="James Doe")
     await i_3.save()
 
-    async with (await Identity.find({"name": "John Doe"})) as cursor:
-        results = [i async for i in cursor]
+    results = await (await Identity.find({"name": "John Doe"})).to_list()
 
     assert len(results) == 1
     assert i_1.key_ == results[0].key_
