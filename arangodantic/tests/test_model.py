@@ -4,7 +4,11 @@ from uuid import uuid4
 import pytest
 from aioarangodb import CursorCountError
 
-from arangodantic import ModelNotFoundError, UniqueConstraintError
+from arangodantic import (
+    ModelNotFoundError,
+    MultipleModelsFoundError,
+    UniqueConstraintError,
+)
 from arangodantic.tests.conftest import ExtendedIdentity, Identity, Link, SubModel
 
 
@@ -233,6 +237,17 @@ async def test_find_one(identity_collection, bad_str: str):
 
     with pytest.raises(ModelNotFoundError):
         await Identity.find_one({bad_str: "John Doe"})
+
+
+@pytest.mark.asyncio
+async def test_find_one_multiple_matches(identity_collection):
+    i = Identity(name="John Doe")
+    i_2 = Identity(name="John Doe")
+    await gather(i.save(), i_2.save())
+
+    await Identity.find_one({"name": "John Doe"})
+    with pytest.raises(MultipleModelsFoundError):
+        await Identity.find_one({"name": "John Doe"}, raise_on_multiple=True)
 
 
 @pytest.mark.asyncio

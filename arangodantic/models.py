@@ -18,6 +18,7 @@ from arangodantic.cursor import ArangodanticCursor
 from arangodantic.exceptions import (
     ConfigError,
     ModelNotFoundError,
+    MultipleModelsFoundError,
     UniqueConstraintError,
 )
 from arangodantic.utils import build_filters, filter_types
@@ -303,19 +304,29 @@ class Model(pydantic.BaseModel, ABC):
         return ArangodanticCursor(cls, cursor)
 
     @classmethod
-    async def find_one(cls, filters: filter_types = None):
+    async def find_one(cls, filters: filter_types = None, raise_on_multiple=False):
         """
         Find at most one item matching the optional filters.
 
         :param filters: Filters in same way as accepted by "find".
+        :param raise_on_multiple: Raise an exception if more than one match is found.
         :raises ModelNotFoundError: If no model matched the given filters.
+        :raises MultipleModelsFoundError: If "raise_on_multiple" is set to True and more
+        than one match is found.
         """
-        async with (await cls.find(filters=filters, limit=1)) as results:
-            results = [x async for x in results]
-            try:
-                return results[0]
-            except IndexError:
-                raise ModelNotFoundError(f"No '{cls.__name__}' matched given filters")
+        limit = 1
+        if raise_on_multiple:
+            limit = 2
+
+        results = await (await cls.find(filters=filters, limit=limit)).to_list()
+        try:
+            if raise_on_multiple and len(results) > 1:
+                raise MultipleModelsFoundError(
+                    f"Multiple '{cls.__name__}' matched given filters"
+                )
+            return results[0]
+        except IndexError:
+            raise ModelNotFoundError(f"No '{cls.__name__}' matched given filters")
 
 
 class DocumentModel(Model, ABC):

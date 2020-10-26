@@ -8,6 +8,10 @@ class ModelNotFoundError(ArangodanticError):
     pass
 
 
+class MultipleModelsFoundError(ArangodanticError):
+    pass
+
+
 class UniqueConstraintError(ArangodanticError):
     pass
 
