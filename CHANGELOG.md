@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [0.1.0] - 2020-10-26
+## [0.1.0] - 2020-10-27
 
 ### Added
 - Add "find" and "find_one" methods to models.
