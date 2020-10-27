@@ -10,6 +10,7 @@ from aioarangodb.database import StandardDatabase
 from pydantic import Field
 
 from arangodantic.arangdb_error_codes import (
+    ERROR_ARANGO_DATA_SOURCE_NOT_FOUND,
     ERROR_ARANGO_DOCUMENT_NOT_FOUND,
     ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED,
 )
@@ -17,6 +18,7 @@ from arangodantic.configurations import CONF
 from arangodantic.cursor import ArangodanticCursor
 from arangodantic.exceptions import (
     ConfigError,
+    DataSourceNotFound,
     ModelNotFoundError,
     MultipleModelsFoundError,
     UniqueConstraintError,
@@ -237,13 +239,48 @@ class Model(pydantic.BaseModel, ABC):
         Delete the collection if it exists.
 
         :param ignore_missing: Do not raise an exception on missing collection.
+        :raise DataSourceNotFound: Raised if the collection does not exist and
+        **ignore_missing** is set to False.
         """
         name = cls.get_collection_name()
         db = cls.get_db()
 
-        return await db.delete_collection(
-            name, ignore_missing=ignore_missing, system=False
-        )
+        try:
+            return await db.delete_collection(
+                name, ignore_missing=ignore_missing, system=False
+            )
+        except aioarangodb.CollectionDeleteError as ex:
+            if ex.error_code == ERROR_ARANGO_DATA_SOURCE_NOT_FOUND:
+                raise DataSourceNotFound(
+                    f"No collection found with name {cls.get_collection_name()}"
+                )
+            raise
+
+    @classmethod
+    async def truncate_collection(cls, ignore_missing: bool = True) -> bool:
+        """
+        Truncate the collection if it exists.
+
+        :param ignore_missing: Do not raise an exception on missing collection.
+        :return: True if collection was truncated successfully. False if
+        **ignore_missing** is set to True and the collection does not exist.
+        :raise DataSourceNotFound: Raised if the collection does not exist and
+        **ignore_missing** is set to False.
+        """
+        try:
+            await cls.get_collection().truncate()
+        except aioarangodb.CollectionTruncateError as ex:
+            if ex.error_code == ERROR_ARANGO_DATA_SOURCE_NOT_FOUND:
+                if ignore_missing:
+                    return False
+                else:
+                    raise DataSourceNotFound(
+                        f"No collection found with name {cls.get_collection_name()}"
+                    )
+            else:
+                raise
+
+        return True
 
     async def before_save(self, new: bool, **kwargs) -> None:
         """

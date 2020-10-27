@@ -5,6 +5,7 @@ import pytest
 from aioarangodb import CursorCountError
 
 from arangodantic import (
+    DataSourceNotFound,
     ModelNotFoundError,
     MultipleModelsFoundError,
     UniqueConstraintError,
@@ -288,6 +289,25 @@ async def test_find_with_sub_models(extended_identity_collection):
         assert len(cursor) == 1
         found = await cursor.next()
         assert found.key_ == identity_1.key_
+
+
+@pytest.mark.asyncio
+async def test_delete_collection(identity_collection):
+    assert (await Identity.delete_collection()) is True
+    assert (await Identity.delete_collection()) is False
+    with pytest.raises(DataSourceNotFound):
+        await Identity.delete_collection(ignore_missing=False)
+
+
+@pytest.mark.asyncio
+async def test_truncate_collection(identity_collection):
+    assert (await Identity.truncate_collection()) is True
+
+    await Identity.delete_collection()
+
+    assert (await Identity.truncate_collection()) is False
+    with pytest.raises(DataSourceNotFound):
+        await Identity.truncate_collection(ignore_missing=False)
 
 
 @pytest.mark.asyncio
