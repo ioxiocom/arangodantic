@@ -127,6 +127,20 @@ async def identity_collection(configure_db):
 
 
 @pytest.fixture
+async def identity_alice(identity_collection):
+    alice = Identity(name="Alice")
+    await alice.save()
+    yield alice
+
+
+@pytest.fixture
+async def identity_bob(identity_collection):
+    bob = Identity(name="Bob")
+    await bob.save()
+    yield bob
+
+
+@pytest.fixture
 async def extended_identity_collection(configure_db):
     await ExtendedIdentity.ensure_collection()
     yield

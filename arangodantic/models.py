@@ -1,3 +1,4 @@
+import textwrap
 from abc import ABC
 from functools import lru_cache
 from typing import Optional, Type, TypeVar, Union
@@ -13,11 +14,14 @@ from arangodantic.arangdb_error_codes import (
     ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED,
 )
 from arangodantic.configurations import CONF
+from arangodantic.cursor import ArangodanticCursor
 from arangodantic.exceptions import (
     ConfigError,
     ModelNotFoundError,
+    MultipleModelsFoundError,
     UniqueConstraintError,
 )
+from arangodantic.utils import FilterTypes, build_filters, remove_whitespace_lines
 
 try:
     from contextlib import asynccontextmanager  # type: ignore
@@ -248,6 +252,83 @@ class Model(pydantic.BaseModel, ABC):
         :param new: Tells if the model is new (will be saved for the first time) or not.
         """
         pass
+
+    @classmethod
+    async def find(
+        cls,
+        filters: FilterTypes = None,
+        *,
+        count=False,
+        limit: Optional[int] = None,
+    ) -> ArangodanticCursor:
+        """
+        Find instances of the class using an optional filter and limit.
+
+        :param filters: Filters as a dictionary of either key-values that must match the
+        database record or key-expression mappings. E.g. {"name": "John Doe"} or
+        {"name": {"!=": "John Doe"}}.
+        :param count: If set to True, the total document count is included in
+        the result cursor.
+        :param limit: Limit returned records to a maximum amount.
+        """
+
+        # The name we use to refer to the items we're looping over in the AQL FOR loop
+        instance_name = "i"
+
+        # List of AQL FILTER expressions that will be added together using "AND" and
+        # corresponding bind_vars
+        filter_list, bind_vars = build_filters(filters, instance_name=instance_name)
+
+        filter_str = ""
+        if filter_list:
+            indented_and = "\n        AND "
+            filter_str += "FILTER " + indented_and.join(filter_list)
+
+        limit_str = ""
+        if limit is not None:
+            limit_str += f"LIMIT {int(limit)}"
+
+        query = remove_whitespace_lines(
+            textwrap.dedent(
+                """
+                FOR {instance_name} IN @@collection
+                    {filter_str}
+                    {limit_str}
+                    RETURN {instance_name}
+                """
+            ).format(
+                instance_name=instance_name, filter_str=filter_str, limit_str=limit_str
+            )
+        )
+        bind_vars["@collection"] = cls.get_collection_name()
+
+        cursor = await cls.get_db().aql.execute(query, count=count, bind_vars=bind_vars)
+        return ArangodanticCursor(cls, cursor)
+
+    @classmethod
+    async def find_one(cls, filters: FilterTypes = None, raise_on_multiple=False):
+        """
+        Find at most one item matching the optional filters.
+
+        :param filters: Filters in same way as accepted by "find".
+        :param raise_on_multiple: Raise an exception if more than one match is found.
+        :raises ModelNotFoundError: If no model matched the given filters.
+        :raises MultipleModelsFoundError: If "raise_on_multiple" is set to True and more
+        than one match is found.
+        """
+        limit = 1
+        if raise_on_multiple:
+            limit = 2
+
+        results = await (await cls.find(filters=filters, limit=limit)).to_list()
+        try:
+            if raise_on_multiple and len(results) > 1:
+                raise MultipleModelsFoundError(
+                    f"Multiple '{cls.__name__}' matched given filters"
+                )
+            return results[0]
+        except IndexError:
+            raise ModelNotFoundError(f"No '{cls.__name__}' matched given filters")
 
 
 class DocumentModel(Model, ABC):

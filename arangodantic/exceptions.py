@@ -4,7 +4,15 @@ class ArangodanticError(Exception):
     pass
 
 
+class CursorNotFoundError(ArangodanticError):
+    pass
+
+
 class ModelNotFoundError(ArangodanticError):
+    pass
+
+
+class MultipleModelsFoundError(ArangodanticError):
     pass
 
 

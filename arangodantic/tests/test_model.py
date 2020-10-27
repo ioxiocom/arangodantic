@@ -1,8 +1,14 @@
+from asyncio import gather
 from uuid import uuid4
 
 import pytest
+from aioarangodb import CursorCountError
 
-from arangodantic import ModelNotFoundError, UniqueConstraintError
+from arangodantic import (
+    ModelNotFoundError,
+    MultipleModelsFoundError,
+    UniqueConstraintError,
+)
 from arangodantic.tests.conftest import ExtendedIdentity, Identity, Link, SubModel
 
 
@@ -116,6 +122,135 @@ async def test_locking(identity_collection):
 
 
 @pytest.mark.asyncio
+async def test_find(identity_collection):
+    i_x = Identity(name="Do not find me")
+    await i_x.save()
+
+    i_1 = Identity(name="John Doe")
+    await i_1.save()
+
+    i_y = Identity(name="Do not find me either")
+    await i_y.save()
+
+    i_2 = Identity(name="James Doe")
+    await i_2.save()
+
+    i_3 = Identity(name="James Doe")
+    await i_3.save()
+
+    results = await (await Identity.find({"name": "John Doe"})).to_list()
+
+    assert len(results) == 1
+    assert i_1.key_ == results[0].key_
+    assert i_1.name == results[0].name
+
+    async with (await Identity.find({"name": "James Doe"})) as cursor:
+        results = [i async for i in cursor]
+
+    assert len(results) == 2
+    for r in results:
+        assert r.name == "James Doe"
+
+    with pytest.raises(CursorCountError):
+        len(cursor)
+
+    async with (await Identity.find({"name": "James Doe"}, count=True)) as cursor:
+        assert len(cursor) == 2
+
+
+@pytest.mark.asyncio
+async def test_find_with_comparisons(identity_collection):
+    i_a = Identity(name="a")
+    i_a2 = Identity(name="a")
+    i_b = Identity(name="b")
+    i_c = Identity(name="c")
+
+    await gather(i_a.save(), i_a2.save(), i_b.save(), i_c.save())
+
+    cursor = await (Identity.find({"name": "a"}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name == "a"
+
+    cursor = await (Identity.find({"name": {"<": "a"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 0
+
+    cursor = await (Identity.find({"name": {"<=": "a"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name == "a"
+
+    cursor = await (Identity.find({"name": {">": "c"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 0
+
+    cursor = await (Identity.find({"name": {">": "b"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.name == "c"
+
+    cursor = await (Identity.find({"name": {">=": "b"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name in {"b", "c"}
+
+    cursor = await (Identity.find({"name": {">": "a", "<": "c"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.name == "b"
+
+    cursor = await (Identity.find({"name": "a", "_id": {"!=": i_a}}, count=True))
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.id_ == i_a2.id_
+
+
+@pytest.mark.parametrize(
+    "bad_str",
+    [
+        "'`´ \"$&=?+._",
+        "a..b",
+        ".a",
+        "b.",
+        "a..b",
+        "...a....b...",
+    ],
+)
+@pytest.mark.asyncio
+async def test_find_one(identity_collection, bad_str: str):
+    i = Identity(name="John Doe")
+    await i.save()
+
+    i_found = await Identity.find_one({"name": "John Doe"})
+
+    assert i.key_ == i_found.key_
+
+    with pytest.raises(ModelNotFoundError):
+        await Identity.find_one({"name": bad_str})
+
+    with pytest.raises(ModelNotFoundError):
+        await Identity.find_one({bad_str: "John Doe"})
+
+
+@pytest.mark.asyncio
+async def test_find_one_multiple_matches(identity_collection):
+    i = Identity(name="John Doe")
+    i_2 = Identity(name="John Doe")
+    await gather(i.save(), i_2.save())
+
+    await Identity.find_one({"name": "John Doe"})
+    with pytest.raises(MultipleModelsFoundError):
+        await Identity.find_one({"name": "John Doe"}, raise_on_multiple=True)
+
+
+@pytest.mark.asyncio
 async def test__before_save(extended_identity_collection):
     identity = ExtendedIdentity(name="John Doe")
     await identity.save(extra="foo")
@@ -140,15 +275,50 @@ async def test_sub_models(extended_identity_collection):
 
 
 @pytest.mark.asyncio
-async def test_edge_model(identity_collection, link_collection):
-    alice = Identity(name="Alice")
-    await alice.save()
-    bob = Identity(name="Bob")
-    await bob.save()
+async def test_find_with_sub_models(extended_identity_collection):
+    sub_1 = SubModel(text="foo")
+    identity_1 = ExtendedIdentity(name="John Doe", sub=sub_1)
+    await identity_1.save()
 
-    link = Link(_from=alice, _to=bob, type="Knows")
+    sub_2 = SubModel(text="bar")
+    identity_2 = ExtendedIdentity(name="John Doe", sub=sub_2)
+    await identity_2.save()
+
+    async with (await ExtendedIdentity.find({"sub.text": "foo"}, count=True)) as cursor:
+        assert len(cursor) == 1
+        found = await cursor.next()
+        assert found.key_ == identity_1.key_
+
+
+@pytest.mark.asyncio
+async def test_edge_model(
+    identity_collection,
+    link_collection,
+    identity_alice: Identity,
+    identity_bob: Identity,
+):
+    link = Link(_from=identity_alice, _to=identity_bob, type="Knows")
     await link.save()
 
     await link.reload()
-    assert link.from_ == alice.id_
-    assert link.to_ == bob.id_
+    assert link.from_ == identity_alice.id_
+    assert link.to_ == identity_bob.id_
+
+
+@pytest.mark.asyncio
+async def test_find_one_edge_model(
+    identity_collection,
+    link_collection,
+    identity_alice: Identity,
+    identity_bob: Identity,
+):
+    ab = Link(_from=identity_alice, _to=identity_bob, type="Knows")
+    await ab.save()
+
+    with pytest.raises(ModelNotFoundError):
+        await Link.find_one({"_from": identity_bob, "_to": identity_alice})
+
+    assert (
+        ab.key_
+        == (await Link.find_one({"_from": identity_alice, "_to": identity_bob})).key_
+    )
