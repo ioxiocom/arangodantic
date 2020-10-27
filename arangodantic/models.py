@@ -239,8 +239,8 @@ class Model(pydantic.BaseModel, ABC):
         Delete the collection if it exists.
 
         :param ignore_missing: Do not raise an exception on missing collection.
-        :raise DataSourceNotFound: If the collection does not exist and
-        **ignore_missing** was set to False.
+        :raise DataSourceNotFound: Raised if the collection does not exist and
+        **ignore_missing** is set to False.
         """
         name = cls.get_collection_name()
         db = cls.get_db()
@@ -257,15 +257,15 @@ class Model(pydantic.BaseModel, ABC):
             raise
 
     @classmethod
-    async def truncate_collection(cls, ignore_missing=True) -> bool:
+    async def truncate_collection(cls, ignore_missing: bool = True) -> bool:
         """
         Truncate the collection if it exists.
 
         :param ignore_missing: Do not raise an exception on missing collection.
-        :return: True if collection was truncated successfully. If **ignore_missing** is
-        set to True will return False if the collection does not exist.
-        :raise DataSourceNotFound: If the collection does not exist and
-        **ignore_missing** was set to False.
+        :return: True if collection was truncated successfully. False if
+        **ignore_missing** is set to True and the collection does not exist.
+        :raise DataSourceNotFound: Raised if the collection does not exist and
+        **ignore_missing** is set to False.
         """
         try:
             await cls.get_collection().truncate()
