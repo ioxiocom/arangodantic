@@ -95,6 +95,8 @@ class Graph(ABC):
             except aioarangodb.exceptions.DocumentInsertError as ex:
                 if ex.error_code == ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED:
                     raise UniqueConstraintError(ex.error_message)
+                elif ex.error_code == ERROR_ARANGO_DOCUMENT_NOT_FOUND:
+                    raise ModelNotFoundError(ex.error_message)
                 raise
         else:
             # Update existing document
