@@ -39,6 +39,32 @@ async def test_save_through_graph(relation_graph):
 
 
 @pytest.mark.asyncio
+async def test_save_through_graph_model_not_found(relation_graph):
+    alice = Person(name="Alice")
+    bob = Person(name="Bob")
+    cecil = Person(name="Cecil")
+
+    await RelationGraph.save(alice)
+    await RelationGraph.save(bob)
+    await RelationGraph.save(cecil)
+
+    # Saving a new edge through graph should fail if one of the vertices has been
+    # deleted
+    bob_id = bob.id_
+    await bob.delete()
+    ab = Relation(_from=alice, _to=bob_id, kind="BFF")
+    with pytest.raises(ModelNotFoundError):
+        await RelationGraph.save(ab)
+
+    # Updating an existing edge should fail if one of the vertices has been deleted
+    ac = Relation(_from=alice, _to=cecil, kind="BFF")
+    await RelationGraph.save(ac)
+    await cecil.delete()
+    with pytest.raises(ModelNotFoundError):
+        await RelationGraph.save(ac)
+
+
+@pytest.mark.asyncio
 async def test_unique_constraint_graph(relation_graph):
     # Create unique index on the "name" field.
     await Person.get_collection().add_hash_index(fields=["name"], unique=True)
