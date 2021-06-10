@@ -382,6 +382,24 @@ class EdgeModel(Model, ABC):
     from_: Union[str, DocumentModel] = Field(alias="_from")
     to_: Union[str, DocumentModel] = Field(alias="_to")
 
+    @property
+    def from_key_(self) -> Optional[str]:
+        if self.from_ is None:
+            return None
+        elif isinstance(self.from_, DocumentModel):
+            return self.from_.key_
+        else:
+            return self.from_.rsplit("/", maxsplit=1)[1]
+
+    @property
+    def to_key_(self) -> Optional[str]:
+        if self.to_ is None:
+            return None
+        elif isinstance(self.to_, DocumentModel):
+            return self.to_.key_
+        else:
+            return self.to_.rsplit("/", maxsplit=1)[1]
+
     def get_arangodb_data(self) -> dict:
         """
         Get a dictionary of the data to pass on to ArangoDB when inserting, updating and

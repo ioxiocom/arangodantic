@@ -319,10 +319,16 @@ async def test_edge_model(
 ):
     link = Link(_from=identity_alice, _to=identity_bob, type="Knows")
     await link.save()
+    assert link.from_ == identity_alice
+    assert link.to_ == identity_bob
+    assert link.from_key_ == identity_alice.key_
+    assert link.to_key_ == identity_bob.key_
 
     await link.reload()
     assert link.from_ == identity_alice.id_
     assert link.to_ == identity_bob.id_
+    assert link.from_key_ == identity_alice.key_
+    assert link.to_key_ == identity_bob.key_
 
 
 @pytest.mark.asyncio
