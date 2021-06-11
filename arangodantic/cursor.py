@@ -3,7 +3,7 @@ from typing import List, Optional, Type
 from aioarangodb import CursorCloseError
 from aioarangodb.cursor import Cursor
 
-from arangodantic.exceptions import CursorNotFoundError
+from arangodantic.exceptions import CursorError, CursorNotFoundError
 
 
 class ArangodanticCursor:
@@ -76,3 +76,21 @@ class ArangodanticCursor:
         """
         async with self as cursor:
             return [i async for i in cursor]
+
+    @property
+    def full_count(self) -> int:
+        """
+        Get the full count.
+
+        :return: The full count.
+        :raise CursorError: If the cursor statistics do not contain the full count.
+        """
+        stats = self.cursor.statistics()
+        try:
+            full_count: int = stats["fullCount"]
+        except KeyError as e:
+            raise CursorError(
+                "Cursor statistics has no full count, did you use full_count=True?"
+            ) from e
+
+        return full_count

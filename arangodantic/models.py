@@ -295,8 +295,10 @@ class Model(pydantic.BaseModel, ABC):
         cls,
         filters: FilterTypes = None,
         *,
-        count=False,
+        count: bool = False,
+        full_count: Optional[bool] = None,
         limit: Optional[int] = None,
+        offset: Optional[int] = None,
     ) -> ArangodanticCursor:
         """
         Find instances of the class using an optional filter and limit.
@@ -306,7 +308,10 @@ class Model(pydantic.BaseModel, ABC):
         {"name": {"!=": "John Doe"}}.
         :param count: If set to True, the total document count is included in
         the result cursor.
+        :param full_count: The total number of documents that matched the search
+        condition if the limit would not be set.
         :param limit: Limit returned records to a maximum amount.
+        :param offset: Offset used when using a limit.
         """
 
         # The name we use to refer to the items we're looping over in the AQL FOR loop
@@ -323,7 +328,11 @@ class Model(pydantic.BaseModel, ABC):
 
         limit_str = ""
         if limit is not None:
-            limit_str += f"LIMIT {int(limit)}"
+            if offset is None:
+                offset = 0
+            limit_str += f"LIMIT {int(offset)}, {int(limit)}"
+        if offset and limit is None:
+            raise ValueError("Offset is only supported together with limit")
 
         query = remove_whitespace_lines(
             textwrap.dedent(
@@ -339,7 +348,12 @@ class Model(pydantic.BaseModel, ABC):
         )
         bind_vars["@collection"] = cls.get_collection_name()
 
-        cursor = await cls.get_db().aql.execute(query, count=count, bind_vars=bind_vars)
+        cursor = await cls.get_db().aql.execute(
+            query,
+            count=count,
+            bind_vars=bind_vars,
+            full_count=full_count,
+        )
         return ArangodanticCursor(cls, cursor)
 
     @classmethod
