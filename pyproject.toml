@@ -11,8 +11,8 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6"
-pydantic = "^1.6.1"
+python = ">=3.6.1,<4.0"
+pydantic = "^1.8.2"
 aioarangodb = "^0.1.2"
 inflection = "^0.5.1"
 shylock = {extras = ["aioarangodb"], version = "^1.1.1", optional = true}
