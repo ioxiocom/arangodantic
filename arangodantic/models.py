@@ -373,12 +373,19 @@ class Model(pydantic.BaseModel, ABC):
         return ArangodanticCursor(cls, cursor)
 
     @classmethod
-    async def find_one(cls, filters: FilterTypes = None, raise_on_multiple=False):
+    async def find_one(
+        cls,
+        filters: FilterTypes = None,
+        raise_on_multiple: bool = False,
+        *,
+        sort: SortTypes = None,
+    ):
         """
         Find at most one item matching the optional filters.
 
         :param filters: Filters in same way as accepted by "find".
         :param raise_on_multiple: Raise an exception if more than one match is found.
+        :param sort: Sort in same way as accepted by "find".
         :raises ModelNotFoundError: If no model matched the given filters.
         :raises MultipleModelsFoundError: If "raise_on_multiple" is set to True and more
         than one match is found.
@@ -387,7 +394,9 @@ class Model(pydantic.BaseModel, ABC):
         if raise_on_multiple:
             limit = 2
 
-        results = await (await cls.find(filters=filters, limit=limit)).to_list()
+        results = await (
+            await cls.find(filters=filters, limit=limit, sort=sort)
+        ).to_list()
         try:
             if raise_on_multiple and len(results) > 1:
                 raise MultipleModelsFoundError(

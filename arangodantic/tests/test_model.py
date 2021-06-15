@@ -15,6 +15,7 @@ from arangodantic import (
     UniqueConstraintError,
 )
 from arangodantic.tests.conftest import ExtendedIdentity, Identity, Link, SubModel
+from arangodantic.utils import SortTypes
 
 
 @pytest.mark.asyncio
@@ -395,7 +396,9 @@ async def test_find_one_edge_model(
     ],
 )
 @pytest.mark.asyncio
-async def test_find_with_sort(extended_identity_collection, sort, expected: List[str]):
+async def test_find_with_sort(
+    extended_identity_collection, sort: SortTypes, expected: List[str]
+):
     identities = [
         ExtendedIdentity(name="alice", extra="xxx", sub=SubModel(text="nnn")),
         ExtendedIdentity(name="bob", extra="zzz", sub=SubModel(text="mmm")),
@@ -409,3 +412,19 @@ async def test_find_with_sort(extended_identity_collection, sort, expected: List
         assert [m.name for m in await cursor.to_list()] == expected_
 
     await verify_order(await ExtendedIdentity.find(sort=sort), expected)
+
+
+@pytest.mark.asyncio
+async def test_find_one_with_sort(identity_collection):
+    identities = [
+        Identity(name="Bob"),
+        Identity(name="Alice"),
+    ]
+    for identity in identities:
+        await identity.save()
+
+    found = await Identity.find_one(sort=[("name", ASCENDING)])
+    assert found.name == "Alice"
+
+    found = await Identity.find_one(sort=[("name", DESCENDING)])
+    assert found.name == "Bob"
