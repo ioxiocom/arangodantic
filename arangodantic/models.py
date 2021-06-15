@@ -23,7 +23,13 @@ from arangodantic.exceptions import (
     MultipleModelsFoundError,
     UniqueConstraintError,
 )
-from arangodantic.utils import FilterTypes, build_filters, remove_whitespace_lines
+from arangodantic.utils import (
+    FilterTypes,
+    SortTypes,
+    build_filters,
+    build_sort,
+    remove_whitespace_lines,
+)
 
 try:
     from contextlib import asynccontextmanager  # type: ignore
@@ -299,6 +305,7 @@ class Model(pydantic.BaseModel, ABC):
         full_count: Optional[bool] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        sort: SortTypes = None,
     ) -> ArangodanticCursor:
         """
         Find instances of the class using an optional filter and limit.
@@ -312,6 +319,8 @@ class Model(pydantic.BaseModel, ABC):
         condition if the limit would not be set.
         :param limit: Limit returned records to a maximum amount.
         :param offset: Offset used when using a limit.
+        :param sort: How to sort the results. Can for example be a list of tuples with
+        the field name and direction. E.g. [("name", "ASC")].
         """
 
         # The name we use to refer to the items we're looping over in the AQL FOR loop
@@ -334,16 +343,23 @@ class Model(pydantic.BaseModel, ABC):
         if offset and limit is None:
             raise ValueError("Offset is only supported together with limit")
 
+        sort_str, sort_bind_vars = build_sort(sort=sort, instance_name=instance_name)
+        bind_vars.update(sort_bind_vars)
+
         query = remove_whitespace_lines(
             textwrap.dedent(
                 """
                 FOR {instance_name} IN @@collection
                     {filter_str}
+                    {sort_str}
                     {limit_str}
                     RETURN {instance_name}
                 """
             ).format(
-                instance_name=instance_name, filter_str=filter_str, limit_str=limit_str
+                instance_name=instance_name,
+                filter_str=filter_str,
+                limit_str=limit_str,
+                sort_str=sort_str,
             )
         )
         bind_vars["@collection"] = cls.get_collection_name()

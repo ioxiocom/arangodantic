@@ -69,8 +69,11 @@ class ExtendedIdentity(Identity):
     class ArangodanticConfig:
         collection_name = "ext_identities"
 
-    async def before_save(self, new: bool, extra: Optional[str] = None, **kwargs):
-        self.extra = extra
+    async def before_save(
+        self, new: bool, override_extra: Optional[str] = None, **kwargs
+    ):
+        if override_extra:
+            self.extra = override_extra
 
 
 class Link(EdgeModel):
