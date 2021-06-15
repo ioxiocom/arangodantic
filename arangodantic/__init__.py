@@ -10,3 +10,4 @@ from arangodantic.models import (
     EdgeModel,
     Model,
 )
+from arangodantic.utils import SortTypes
