@@ -1,7 +1,10 @@
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+from arangodantic.directions import DIRECTIONS
 
 FilterTypes = Optional[Dict[str, Any]]
+SortTypes = Optional[Iterable[Tuple[str, str]]]
 
 ONE_OR_MORE_DOTS_PATTERN = re.compile(r"\.+")
 
@@ -123,3 +126,34 @@ def remove_whitespace_lines(text: str) -> str:
     Remove lines that only contains whitespace from a string.
     """
     return "\n".join([line for line in text.splitlines() if line.strip()])
+
+
+def build_sort(
+    instance_name: str, sort: SortTypes = None
+) -> Tuple[str, Dict[str, str]]:
+    """
+    Turn the sort specification into an AQL SORT clause and corresponding bind_vars.
+
+    :param instance_name: The name we're using in the AQL query for the instances we're
+    looping over.
+    :param sort: An Iterable containing tuples of fields and directions.
+    :return: A tuple of the "SORT ..." string for use in AQL and the related bind_vars
+    as a dictionary.
+    """
+    sort_lst = []
+    bind_vars = {}
+    if sort:
+        for i, (field, direction) in enumerate(sort):
+            if direction not in DIRECTIONS:
+                raise ValueError(
+                    f"Invalid sort direction '{direction}' for field {field}"
+                )
+            field_str, field_bind_vars = split_field(field, f"sort_{i}")
+            bind_vars.update(field_bind_vars)
+            sort_lst.append(f"{instance_name}.{field_str} {direction}")
+
+    sort_str = ""
+    if sort_lst:
+        sort_str += "SORT " + ", ".join(sort_lst)
+
+    return sort_str, bind_vars

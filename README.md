@@ -46,7 +46,7 @@ from shylock import AsyncLock as Lock
 from shylock import ShylockAioArangoDBBackend
 from shylock import configure as configure_shylock
 
-from arangodantic import DocumentModel, EdgeModel, configure
+from arangodantic import ASCENDING, DocumentModel, EdgeModel, configure
 
 
 # Define models
@@ -113,11 +113,10 @@ async def main():
     # Hold named locks while loading and doing changes
     async with Company.lock_and_load(company.key_) as c:
         assert c.owner == owner
-        c.owner = second_owner
+        c.owner.first_name = "Joanne"
         await c.save()
 
     await company.reload()
-    assert c.owner == company.owner
     print(f"Updated owner of company to '{company.owner!r}'")
 
     # Let's explore the find functionality
@@ -133,6 +132,19 @@ async def main():
         {"owner.last_name": "Doe", "_id": {"!=": company}}
     )
     print(f"Found the company {found_company.key_}")
+
+    # Find also supports sorting and the cursor can easily be converted to a list
+    companies = await (
+        await Company.find(
+            sort=[
+                ("owner.last_name", ASCENDING),
+                ("owner.first_name", ASCENDING),
+            ]
+        )
+    ).to_list()
+    print("Companies sorted by owner:")
+    for c in companies:
+        print(f"Company {c.company_id}, owner: {c.owner!r}")
 
 
 if __name__ == "__main__":

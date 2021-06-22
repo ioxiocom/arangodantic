@@ -23,7 +23,13 @@ from arangodantic.exceptions import (
     MultipleModelsFoundError,
     UniqueConstraintError,
 )
-from arangodantic.utils import FilterTypes, build_filters, remove_whitespace_lines
+from arangodantic.utils import (
+    FilterTypes,
+    SortTypes,
+    build_filters,
+    build_sort,
+    remove_whitespace_lines,
+)
 
 try:
     from contextlib import asynccontextmanager  # type: ignore
@@ -295,8 +301,11 @@ class Model(pydantic.BaseModel, ABC):
         cls,
         filters: FilterTypes = None,
         *,
-        count=False,
+        count: bool = False,
+        full_count: Optional[bool] = None,
         limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        sort: SortTypes = None,
     ) -> ArangodanticCursor:
         """
         Find instances of the class using an optional filter and limit.
@@ -306,7 +315,12 @@ class Model(pydantic.BaseModel, ABC):
         {"name": {"!=": "John Doe"}}.
         :param count: If set to True, the total document count is included in
         the result cursor.
+        :param full_count: The total number of documents that matched the search
+        condition if the limit would not be set.
         :param limit: Limit returned records to a maximum amount.
+        :param offset: Offset used when using a limit.
+        :param sort: How to sort the results. Can for example be a list of tuples with
+        the field name and direction. E.g. [("name", "ASC")].
         """
 
         # The name we use to refer to the items we're looping over in the AQL FOR loop
@@ -323,32 +337,55 @@ class Model(pydantic.BaseModel, ABC):
 
         limit_str = ""
         if limit is not None:
-            limit_str += f"LIMIT {int(limit)}"
+            if offset is None:
+                offset = 0
+            limit_str += f"LIMIT {int(offset)}, {int(limit)}"
+        if offset and limit is None:
+            raise ValueError("Offset is only supported together with limit")
+
+        sort_str, sort_bind_vars = build_sort(sort=sort, instance_name=instance_name)
+        bind_vars.update(sort_bind_vars)
 
         query = remove_whitespace_lines(
             textwrap.dedent(
                 """
                 FOR {instance_name} IN @@collection
                     {filter_str}
+                    {sort_str}
                     {limit_str}
                     RETURN {instance_name}
                 """
             ).format(
-                instance_name=instance_name, filter_str=filter_str, limit_str=limit_str
+                instance_name=instance_name,
+                filter_str=filter_str,
+                limit_str=limit_str,
+                sort_str=sort_str,
             )
         )
         bind_vars["@collection"] = cls.get_collection_name()
 
-        cursor = await cls.get_db().aql.execute(query, count=count, bind_vars=bind_vars)
+        cursor = await cls.get_db().aql.execute(
+            query,
+            count=count,
+            bind_vars=bind_vars,
+            full_count=full_count,
+        )
         return ArangodanticCursor(cls, cursor)
 
     @classmethod
-    async def find_one(cls, filters: FilterTypes = None, raise_on_multiple=False):
+    async def find_one(
+        cls,
+        filters: FilterTypes = None,
+        raise_on_multiple: bool = False,
+        *,
+        sort: SortTypes = None,
+    ):
         """
         Find at most one item matching the optional filters.
 
         :param filters: Filters in same way as accepted by "find".
         :param raise_on_multiple: Raise an exception if more than one match is found.
+        :param sort: Sort in same way as accepted by "find".
         :raises ModelNotFoundError: If no model matched the given filters.
         :raises MultipleModelsFoundError: If "raise_on_multiple" is set to True and more
         than one match is found.
@@ -357,7 +394,9 @@ class Model(pydantic.BaseModel, ABC):
         if raise_on_multiple:
             limit = 2
 
-        results = await (await cls.find(filters=filters, limit=limit)).to_list()
+        results = await (
+            await cls.find(filters=filters, limit=limit, sort=sort)
+        ).to_list()
         try:
             if raise_on_multiple and len(results) > 1:
                 raise MultipleModelsFoundError(
@@ -381,6 +420,24 @@ class EdgeModel(Model, ABC):
 
     from_: Union[str, DocumentModel] = Field(alias="_from")
     to_: Union[str, DocumentModel] = Field(alias="_to")
+
+    @property
+    def from_key_(self) -> Optional[str]:
+        if self.from_ is None:
+            return None
+        elif isinstance(self.from_, DocumentModel):
+            return self.from_.key_
+        else:
+            return self.from_.rsplit("/", maxsplit=1)[1]
+
+    @property
+    def to_key_(self) -> Optional[str]:
+        if self.to_ is None:
+            return None
+        elif isinstance(self.to_, DocumentModel):
+            return self.to_.key_
+        else:
+            return self.to_.rsplit("/", maxsplit=1)[1]
 
     def get_arangodb_data(self) -> dict:
         """

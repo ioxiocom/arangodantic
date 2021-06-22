@@ -30,3 +30,7 @@ class GraphNotFoundError(ArangodanticError):
 
 class ConfigError(ArangodanticError):
     pass
+
+
+class CursorError(ArangodanticError):
+    pass

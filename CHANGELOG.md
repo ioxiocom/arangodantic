@@ -8,6 +8,19 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.2.0] - 2021-06-22
+
+### Added
+- Add `sort` parameter to `find` and `find_one` methods in models.
+- Add `full_count` property to `ArangodanticCursor`.
+- Add `offset` parameter to be used together with `limit` in `find`.
+- Add `from_key_` and `to_key_` properties to edges.
+
+### Changed
+- Saving (especially edge models) through the graph can now raise a `ModelNotFoundError`
+  instead of `DocumentInsertError` in certain cases.
+- Update `pydantic` to ^1.8.2 that fixes CVE-2021-29510.
+
 ## [0.1.0] - 2020-10-27
 
 ### Added
@@ -49,7 +62,8 @@ features for that.
 
 - Initial release of Arangodantic
 
-[Unreleased]: https://github.com/digitalliving/arangodantic/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/digitalliving/arangodantic/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/digitalliving/arangodantic/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/digitalliving/arangodantic/compare/0.0.4...0.1.0
 [0.0.4]: https://github.com/digitalliving/arangodantic/compare/0.0.3...0.0.4
 [0.0.3]: https://github.com/digitalliving/arangodantic/compare/0.0.2...0.0.3

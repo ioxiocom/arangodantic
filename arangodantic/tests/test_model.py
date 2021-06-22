@@ -1,16 +1,20 @@
 from asyncio import gather
+from typing import List
 from uuid import uuid4
 
 import pytest
 from aioarangodb import CursorCountError
 
 from arangodantic import (
+    ASCENDING,
+    DESCENDING,
     DataSourceNotFound,
     ModelNotFoundError,
     MultipleModelsFoundError,
     UniqueConstraintError,
 )
 from arangodantic.tests.conftest import ExtendedIdentity, Identity, Link, SubModel
+from arangodantic.utils import SortTypes
 
 
 @pytest.mark.asyncio
@@ -254,7 +258,7 @@ async def test_find_one_multiple_matches(identity_collection):
 @pytest.mark.asyncio
 async def test__before_save(extended_identity_collection):
     identity = ExtendedIdentity(name="John Doe")
-    await identity.save(extra="foo")
+    await identity.save(override_extra="foo")
     identity = await ExtendedIdentity.load(identity.key_)
     assert identity.extra == "foo"
 
@@ -319,10 +323,16 @@ async def test_edge_model(
 ):
     link = Link(_from=identity_alice, _to=identity_bob, type="Knows")
     await link.save()
+    assert link.from_ == identity_alice
+    assert link.to_ == identity_bob
+    assert link.from_key_ == identity_alice.key_
+    assert link.to_key_ == identity_bob.key_
 
     await link.reload()
     assert link.from_ == identity_alice.id_
     assert link.to_ == identity_bob.id_
+    assert link.from_key_ == identity_alice.key_
+    assert link.to_key_ == identity_bob.key_
 
 
 @pytest.mark.asyncio
@@ -342,3 +352,76 @@ async def test_find_one_edge_model(
         ab.key_
         == (await Link.find_one({"_from": identity_alice, "_to": identity_bob})).key_
     )
+
+
+@pytest.mark.parametrize(
+    "sort,expected",
+    [
+        (
+            [
+                ("name", DESCENDING),
+            ],
+            [
+                "david",
+                "cecil",
+                "bob",
+                "alice",
+            ],
+        ),
+        (
+            [
+                ("extra", DESCENDING),
+                ("name", ASCENDING),
+            ],
+            [
+                "bob",
+                "cecil",
+                "david",
+                "alice",
+            ],
+        ),
+        (
+            [
+                ("sub.text", ASCENDING),
+                ("extra", ASCENDING),
+            ],
+            [
+                "cecil",
+                "david",
+                "bob",
+                "alice",
+            ],
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_find_with_sort(
+    extended_identity_collection, sort: SortTypes, expected: List[str]
+):
+    identities = [
+        ExtendedIdentity(name="alice", extra="xxx", sub=SubModel(text="nnn")),
+        ExtendedIdentity(name="bob", extra="zzz", sub=SubModel(text="mmm")),
+        ExtendedIdentity(name="cecil", extra="yyy", sub=SubModel(text="lll")),
+        ExtendedIdentity(name="david", extra="yyy", sub=SubModel(text="mmm")),
+    ]
+    for identity in identities:
+        await identity.save()
+
+    found_identities = await (await ExtendedIdentity.find(sort=sort)).to_list()
+    assert [identity.name for identity in found_identities] == expected
+
+
+@pytest.mark.asyncio
+async def test_find_one_with_sort(identity_collection):
+    identities = [
+        Identity(name="Bob"),
+        Identity(name="Alice"),
+    ]
+    for identity in identities:
+        await identity.save()
+
+    found = await Identity.find_one(sort=[("name", ASCENDING)])
+    assert found.name == "Alice"
+
+    found = await Identity.find_one(sort=[("name", DESCENDING)])
+    assert found.name == "Bob"
