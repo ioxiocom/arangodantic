@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [0.2.0] - 2021-06-16
+## [0.2.0] - 2021-06-22
 
 ### Added
 - Add `sort` parameter to `find` and `find_one` methods in models.
