@@ -8,7 +8,6 @@ from aioarangodb import CursorCountError
 from arangodantic import (
     ASCENDING,
     DESCENDING,
-    ArangodanticCursor,
     DataSourceNotFound,
     ModelNotFoundError,
     MultipleModelsFoundError,
@@ -408,10 +407,8 @@ async def test_find_with_sort(
     for identity in identities:
         await identity.save()
 
-    async def verify_order(cursor: ArangodanticCursor, expected_: List[str]) -> None:
-        assert [m.name for m in await cursor.to_list()] == expected_
-
-    await verify_order(await ExtendedIdentity.find(sort=sort), expected)
+    found_identities = await (await ExtendedIdentity.find(sort=sort)).to_list()
+    assert [identity.name for identity in found_identities] == expected
 
 
 @pytest.mark.asyncio
