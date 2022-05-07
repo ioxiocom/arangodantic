@@ -167,8 +167,8 @@ async def test_find(identity_collection):
 async def test_find_with_comparisons(identity_collection):
     i_a = Identity(name="a")
     i_a2 = Identity(name="a")
-    i_b = Identity(name="b")
-    i_c = Identity(name="c")
+    i_b = Identity(name="b", data={"aliases": ["foo", "bar"]})
+    i_c = Identity(name="c", data={"aliases": ["bar", "baz"]})
 
     await gather(i_a.save(), i_a2.save(), i_b.save(), i_c.save())
 
@@ -215,6 +215,32 @@ async def test_find_with_comparisons(identity_collection):
         assert len(cursor) == 1
         async for i in cursor:
             assert i.id_ == i_a2.id_
+
+    cursor = await (Identity.find({"name": {"in": ["b", "c"]}}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name in {"b", "c"}
+
+    cursor = await (Identity.find({"name": {"not in": ["a"]}}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name in {"b", "c"}
+
+    cursor = await (Identity.find({"data.aliases": {"contains": "foo"}}, count=True))
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.name == "b"
+
+    cursor = await (
+        Identity.find({"data.aliases": {"not contains": "foo"}}, count=True)
+    )
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.name == "c"
 
 
 @pytest.mark.parametrize(

@@ -46,6 +46,10 @@ def build_filters(
         ">=": "gte",
         "!=": "ne",
         "==": "eq",
+        "in": "in",
+        "not in": "nin",
+        "contains": "contains",
+        "not contains": "ncontains",
     }
 
     if filters:
@@ -76,9 +80,18 @@ def build_filters(
                 bind_vars[value_bind_var] = value
 
                 # The actual comparison
-                filter_list.append(
-                    f"{instance_name}.{field_str} {operator} @{value_bind_var}"
-                )
+                if operator in {"contains", "not contains"}:
+                    # If we want to check that an array field contains a value,
+                    # we need to reverse the filter sides. "Contains" is kind of a
+                    # reverse IN.
+                    contains_op = "IN" if operator == "contains" else "NOT IN"
+                    filter_list.append(
+                        f"@{value_bind_var} {contains_op} {instance_name}.{field_str}"
+                    )
+                else:
+                    filter_list.append(
+                        f"{instance_name}.{field_str} {operator} @{value_bind_var}"
+                    )
 
     return filter_list, bind_vars
 

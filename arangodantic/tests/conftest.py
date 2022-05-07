@@ -1,6 +1,6 @@
 import random
 import string
-from typing import Optional
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
 import pydantic
@@ -52,6 +52,7 @@ class Identity(DocumentModel):
     """Dummy identity Arangodantic model."""
 
     name: str = ""
+    data: Optional[Dict[str, Any]] = None
 
 
 class SubModel(pydantic.BaseModel):
