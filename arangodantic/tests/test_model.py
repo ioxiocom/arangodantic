@@ -425,3 +425,24 @@ async def test_find_one_with_sort(identity_collection):
 
     found = await Identity.find_one(sort=[("name", DESCENDING)])
     assert found.name == "Bob"
+
+
+@pytest.mark.asyncio
+async def test_identity_indexes(identity_collection):
+    collection = Identity.get_collection()
+    for index_definition in await collection.indexes():
+        if index_definition["type"] in {"primary", "edge"}:
+            continue
+
+        if index_definition["type"] == "hash":
+            assert "name" in index_definition["fields"]
+
+
+@pytest.mark.asyncio
+async def test_link_indexes(link_collection):
+    collection = Link.get_collection()
+    for index_definition in await collection.indexes():
+        if index_definition["type"] in {"primary", "edge"}:
+            continue
+        if index_definition["type"] == "hash":
+            assert ["_from", "_to", "type"] == index_definition["fields"]

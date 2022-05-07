@@ -51,6 +51,9 @@ async def configure_db():
 class Identity(DocumentModel):
     """Dummy identity Arangodantic model."""
 
+    class ArangodanticConfig:
+        indexes = {"add_hash_index": [{"fields": ["name"]}]}
+
     name: str = ""
 
 
@@ -78,6 +81,11 @@ class ExtendedIdentity(Identity):
 
 class Link(EdgeModel):
     """Dummy Arangodantic edge model."""
+
+    class ArangodanticConfig:
+        indexes = {
+            "add_hash_index": [{"fields": ["_from", "_to", "type"], "unique": True}]
+        }
 
     type: str
 
@@ -125,6 +133,7 @@ class SecondaryRelationGraph(Graph):
 @pytest.fixture
 async def identity_collection(configure_db):
     await Identity.ensure_collection()
+    await Identity.ensure_indexes()
     yield
     await Identity.delete_collection()
 
@@ -153,6 +162,7 @@ async def extended_identity_collection(configure_db):
 @pytest.fixture
 async def link_collection(configure_db):
     await Link.ensure_collection()
+    await Link.ensure_indexes()
     yield
     await Link.delete_collection()
 

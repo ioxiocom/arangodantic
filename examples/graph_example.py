@@ -21,11 +21,17 @@ from arangodantic import (
 class Person(DocumentModel):
     """Documents describing persons."""
 
+    class ArangodanticConfig:
+        indexes = {"add_hash_index": [{"fields": ["name"]}]}
+
     name: str
 
 
 class Relation(EdgeModel):
     """Edge documents describing relation between people."""
+
+    class ArangodanticConfig:
+        indexes = {"add_hash_index": [{"fields": ["kind"]}]}
 
     kind: str
 
@@ -71,6 +77,14 @@ async def main():
     # Create the graph (it'll also create the collections)
     # Only for demo, you likely want to create the graph in advance.
     await RelationGraph.ensure_graph()
+
+    # Clean up before running.
+    await Person.truncate_collection()
+    await Relation.truncate_collection()
+
+    # We need to ensure the indexes separately
+    await Person.ensure_indexes()
+    await Relation.ensure_indexes()
 
     # Let's create some example persons
     alice = Person(name="Alice")

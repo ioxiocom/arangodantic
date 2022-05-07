@@ -21,12 +21,26 @@ class Owner(BaseModel):
 class Company(DocumentModel):
     """Dummy company Arangodantic model."""
 
+    class ArangodanticConfig:
+        indexes = {
+            "add_hash_index": [
+                {"fields": ["company_id"], "unique": True},
+                {"fields": ["owner.first_name"]},
+                {"fields": ["owner.last_name"]},
+            ],
+        }
+
     company_id: str
     owner: Owner
 
 
 class Link(EdgeModel):
     """Dummy Link Arangodantic model."""
+
+    class ArangodanticConfig:
+        indexes = {
+            "add_hash_index": [{"fields": ["_from", "_to", "type"], "unique": True}]
+        }
 
     type: str
 
@@ -51,10 +65,16 @@ async def main():
     configure_shylock(await ShylockAioArangoDBBackend.create(db, f"{prefix}shylock"))
     configure(db, prefix=prefix, key_gen=uuid4, lock=Lock)
 
-    # Create collections if they don't yet exist
+    # Create collections and indexes if they don't yet exist
     # Only for demo, you likely want to create the collections in advance.
     await Company.ensure_collection()
+    await Company.ensure_indexes()
     await Link.ensure_collection()
+    await Link.ensure_indexes()
+
+    # Clean up any existing data.
+    await Company.truncate_collection()
+    await Link.truncate_collection()
 
     # Let's create some example entries
     owner = Owner(first_name="John", last_name="Doe")

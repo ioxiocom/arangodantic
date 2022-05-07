@@ -1,7 +1,7 @@
 import textwrap
 from abc import ABC
 from functools import lru_cache
-from typing import Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 import aioarangodb.exceptions
 import pydantic
@@ -42,6 +42,9 @@ TModel = TypeVar("TModel", bound="Model")
 class ArangodanticCollectionConfig(pydantic.BaseModel):
     collection_name: Optional[str] = Field(
         None, description="Override the name of the collection to use"
+    )
+    indexes: Optional[Dict[str, List[Dict[str, Any]]]] = Field(
+        None, description="Override the collection indexes."
     )
 
 
@@ -238,6 +241,50 @@ class Model(pydantic.BaseModel, ABC):
 
         if not await db.has_collection(name):
             await db.create_collection(name, *args, **kwargs)
+
+    @classmethod
+    async def ensure_indexes(cls):
+        """
+        Ensure the collection's indexes are created.
+
+        The configuration for the indexes are defined in the ArangodanticConfig class
+        for a model. The class should define an `indexes` dictionary, which contains
+        the desired indexing function to be run, and it's index definitions.
+        Supported index functions are:
+        - add_hash_index
+        - add_geo_index
+        - add_ttl_index
+        - add_fulltext_index
+        - add_persistent_index
+        - add_skiplist_index
+
+        All field definition key-values are passed to the index function as keyword
+        arguments.
+
+        Example:
+            class Node(DocumentModel):
+                class ArangodanticConfig:
+                    indexes = {
+                        "add_hash_index": [
+                            {"fields": ["field1", "field2"]},
+                            {"fields: ["field3"], "unique": True},
+                            {"fields": ["field4"], "sparse": True},
+                            {"fields": ["field5"], "deduplicate": True},
+                        ]
+                    }
+        """
+        cls_config: ArangodanticCollectionConfig = getattr(
+            cls, "ArangodanticConfig", ArangodanticCollectionConfig()
+        )
+        indexes = None
+        if getattr(cls_config, "indexes", None):
+            indexes = cls_config.indexes
+
+        if indexes:
+            collection = cls.get_collection()
+            for index_function, index_fields in indexes.items():
+                for index_definition in index_fields:
+                    await getattr(collection, index_function)(**index_definition)
 
     @classmethod
     async def delete_collection(cls, ignore_missing: bool = True):
