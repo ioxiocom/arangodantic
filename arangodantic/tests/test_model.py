@@ -234,7 +234,7 @@ async def test_find_with_comparisons(identity_collection):
             assert i.name in {"b", "c"}
 
     cursor = await (
-        Identity.find({"data.aliases": {Operators.ALL_IN: ["foo"]}}, count=True)
+        Identity.find({"data.aliases": {Operators.ALL_IN: ["foo", "bar"]}}, count=True)
     )
     async with cursor:
         assert len(cursor) == 1

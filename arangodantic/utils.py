@@ -2,7 +2,7 @@ import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from arangodantic.directions import DIRECTIONS
-from arangodantic.operators import array_comparison_operators, comparison_operators
+from arangodantic.operators import comparison_operators
 
 FilterTypes = Optional[Dict[str, Any]]
 SortTypes = Optional[Iterable[Tuple[str, str]]]
@@ -66,16 +66,9 @@ def build_filters(
                 bind_vars[value_bind_var] = value
 
                 # The actual comparison
-                if operator in array_comparison_operators:
-                    # These operators are checked against the instance.field instead
-                    # of the other way around, e.g. ["foo"] ALL IN i.data.aliases
-                    filter_list.append(
-                        f"@{value_bind_var} {operator} {instance_name}.{field_str}"
-                    )
-                else:
-                    filter_list.append(
-                        f"{instance_name}.{field_str} {operator} @{value_bind_var}"
-                    )
+                filter_list.append(
+                    f"{instance_name}.{field_str} {operator} @{value_bind_var}"
+                )
 
     return filter_list, bind_vars
 

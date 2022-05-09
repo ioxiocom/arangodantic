@@ -45,13 +45,3 @@ comparison_operators = {
     Operators.ALL: "all",
     Operators.NONE: "none",
 }
-
-# List of array comparison operators.
-array_comparison_operators = {
-    Operators.ALL_IN,
-    Operators.NONE_IN,
-    Operators.ANY_IN,
-    Operators.ANY,
-    Operators.ALL,
-    Operators.NONE,
-}
