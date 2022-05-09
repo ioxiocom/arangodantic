@@ -429,6 +429,7 @@ async def test_find_one_with_sort(identity_collection):
 
 @pytest.mark.asyncio
 async def test_identity_indexes(identity_collection):
+    await Identity.ensure_indexes()
     collection = Identity.get_collection()
     for index_definition in await collection.indexes():
         if index_definition["type"] in {"primary", "edge"}:
@@ -440,6 +441,7 @@ async def test_identity_indexes(identity_collection):
 
 @pytest.mark.asyncio
 async def test_link_indexes(link_collection):
+    await Link.ensure_indexes()
     collection = Link.get_collection()
     for index_definition in await collection.indexes():
         if index_definition["type"] in {"primary", "edge"}:
