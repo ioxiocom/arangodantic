@@ -33,7 +33,7 @@ class BaseIndex(pydantic.BaseModel):
         None, description="Do not hold the collection lock."
     )
 
-    async def add_index(self, collection: StandardCollection) -> dict:
+    async def add_index(self, collection: StandardCollection):
         """
         Creates the index on the collection.
 
@@ -66,7 +66,7 @@ class SkiplistIndex(BaseIndex):
     Creates a skiplist index on the collection.
     """
 
-    async def add_index(self, collection: StandardCollection) -> dict:
+    async def add_index(self, collection: StandardCollection):
         return await collection.add_skiplist_index(
             fields=self.fields,
             unique=self.unique,
@@ -86,7 +86,7 @@ class GeoIndex(BaseIndex):
         None, description="Whether the order is longitude, then latitude."
     )
 
-    async def add_index(self, collection: StandardCollection) -> dict:
+    async def add_index(self, collection: StandardCollection):
         return await collection.add_geo_index(
             fields=self.fields,
             ordered=self.ordered,
@@ -104,7 +104,7 @@ class FulltextIndex(BaseIndex):
         None, description="Minimum number of characters to index."
     )
 
-    async def add_index(self, collection: StandardCollection) -> dict:
+    async def add_index(self, collection: StandardCollection):
         return await collection.add_fulltext_index(
             fields=self.fields,
             min_length=self.min_length,
@@ -118,7 +118,7 @@ class PersistentIndex(BaseIndex):
     Creates a persistent index on the collection.
     """
 
-    async def add_index(self, collection: StandardCollection) -> dict:
+    async def add_index(self, collection: StandardCollection):
         return await collection.add_persistent_index(
             fields=self.fields,
             unique=self.unique,
@@ -137,7 +137,7 @@ class TTLIndex(BaseIndex):
         ..., description="Time of expiry in seconds after document creation."
     )
 
-    async def add_index(self, collection: StandardCollection) -> dict:
+    async def add_index(self, collection: StandardCollection):
         return await collection.add_ttl_index(
             fields=self.fields,
             expiry_time=self.expiry_time,
