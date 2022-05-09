@@ -15,6 +15,7 @@ from arangodantic import (
     ModelNotFoundError,
     configure,
 )
+from arangodantic.indexes import HashIndex
 
 
 # Define models
@@ -22,7 +23,7 @@ class Person(DocumentModel):
     """Documents describing persons."""
 
     class ArangodanticConfig:
-        indexes = {"add_hash_index": [{"fields": ["name"]}]}
+        indexes = [HashIndex(fields=["name"])]
 
     name: str
 
@@ -31,7 +32,7 @@ class Relation(EdgeModel):
     """Edge documents describing relation between people."""
 
     class ArangodanticConfig:
-        indexes = {"add_hash_index": [{"fields": ["kind"]}]}
+        indexes = [HashIndex(fields=["kind"])]
 
     kind: str
 

@@ -8,6 +8,7 @@ from shylock import ShylockAioArangoDBBackend
 from shylock import configure as configure_shylock
 
 from arangodantic import ASCENDING, DocumentModel, EdgeModel, configure
+from arangodantic.indexes import HashIndex
 
 
 # Define models
@@ -22,13 +23,11 @@ class Company(DocumentModel):
     """Dummy company Arangodantic model."""
 
     class ArangodanticConfig:
-        indexes = {
-            "add_hash_index": [
-                {"fields": ["company_id"], "unique": True},
-                {"fields": ["owner.first_name"]},
-                {"fields": ["owner.last_name"]},
-            ],
-        }
+        indexes = [
+            HashIndex(fields=["company_id"], unique=True),
+            HashIndex(fields=["owner.first_name"]),
+            HashIndex(fields=["owner.last_name"]),
+        ]
 
     company_id: str
     owner: Owner
@@ -38,9 +37,7 @@ class Link(EdgeModel):
     """Dummy Link Arangodantic model."""
 
     class ArangodanticConfig:
-        indexes = {
-            "add_hash_index": [{"fields": ["_from", "_to", "type"], "unique": True}]
-        }
+        indexes = [HashIndex(fields=["_from", "_to", "type"], unique=True)]
 
     type: str
 

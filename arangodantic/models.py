@@ -1,7 +1,7 @@
 import textwrap
 from abc import ABC
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+from typing import List, Optional, Type, TypeVar, Union
 
 import aioarangodb.exceptions
 import pydantic
@@ -23,6 +23,7 @@ from arangodantic.exceptions import (
     MultipleModelsFoundError,
     UniqueConstraintError,
 )
+from arangodantic.indexes import BaseIndex
 from arangodantic.utils import (
     FilterTypes,
     SortTypes,
@@ -43,7 +44,7 @@ class ArangodanticCollectionConfig(pydantic.BaseModel):
     collection_name: Optional[str] = Field(
         None, description="Override the name of the collection to use"
     )
-    indexes: Optional[Dict[str, List[Dict[str, Any]]]] = Field(
+    indexes: Optional[List[BaseIndex]] = Field(
         None, description="Override the collection indexes."
     )
 
@@ -248,15 +249,15 @@ class Model(pydantic.BaseModel, ABC):
         Ensure the collection's indexes are created.
 
         The configuration for the indexes are defined in the ArangodanticConfig class
-        for a model. The class should define an `indexes` dictionary, which contains
-        the desired indexing function to be run, and it's index definitions.
-        Supported index functions are:
-        - add_hash_index
-        - add_geo_index
-        - add_ttl_index
-        - add_fulltext_index
-        - add_persistent_index
-        - add_skiplist_index
+        for a model. The class should define an `indexes` list, which contains
+        the desired indexing class to be run, and it's index definitions.
+        Supported index classes are:
+        - HashIndex (add_hash_index)
+        - GeoIndex (add_geo_index)
+        - TTLIndex (add_ttl_index)
+        - FulltextIndex (add_fulltext_index)
+        - PersistentIndex (add_persistent_index)
+        - SkiplistIndex (add_skiplist_index)
 
         All field definition key-values are passed to the index function as keyword
         arguments.
@@ -264,14 +265,12 @@ class Model(pydantic.BaseModel, ABC):
         Example:
             class Node(DocumentModel):
                 class ArangodanticConfig:
-                    indexes = {
-                        "add_hash_index": [
-                            {"fields": ["field1", "field2"]},
-                            {"fields: ["field3"], "unique": True},
-                            {"fields": ["field4"], "sparse": True},
-                            {"fields": ["field5"], "deduplicate": True},
-                        ]
-                    }
+                    indexes = [
+                        HashIndex(fields=["field1", "field2"]),
+                        HashIndex(fields=["field3"], unique=True),
+                        HashIndex(fields=["field4"], sparse=True),
+                        HashIndex(fields=["field5"], deduplicate=True),
+                    ]
         """
         cls_config: ArangodanticCollectionConfig = getattr(
             cls, "ArangodanticConfig", ArangodanticCollectionConfig()
@@ -282,9 +281,8 @@ class Model(pydantic.BaseModel, ABC):
 
         if indexes:
             collection = cls.get_collection()
-            for index_function, index_fields in indexes.items():
-                for index_definition in index_fields:
-                    await getattr(collection, index_function)(**index_definition)
+            for index in indexes:
+                await index.add_index(collection)
 
     @classmethod
     async def delete_collection(cls, ignore_missing: bool = True):

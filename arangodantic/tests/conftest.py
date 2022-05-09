@@ -11,6 +11,7 @@ from shylock import ShylockAioArangoDBBackend
 from shylock import configure as configure_shylock
 
 from arangodantic import DocumentModel, EdgeDefinition, EdgeModel, Graph, configure
+from arangodantic.indexes import HashIndex
 
 HOSTS = "http://localhost:8529"
 USERNAME = "root"
@@ -52,7 +53,7 @@ class Identity(DocumentModel):
     """Dummy identity Arangodantic model."""
 
     class ArangodanticConfig:
-        indexes = {"add_hash_index": [{"fields": ["name"]}]}
+        indexes = [HashIndex(fields=["name"])]
 
     name: str = ""
 
@@ -83,9 +84,7 @@ class Link(EdgeModel):
     """Dummy Arangodantic edge model."""
 
     class ArangodanticConfig:
-        indexes = {
-            "add_hash_index": [{"fields": ["_from", "_to", "type"], "unique": True}]
-        }
+        indexes = [HashIndex(fields=["_from", "_to", "type"], unique=True)]
 
     type: str
 
