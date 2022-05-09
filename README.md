@@ -47,6 +47,7 @@ from shylock import ShylockAioArangoDBBackend
 from shylock import configure as configure_shylock
 
 from arangodantic import ASCENDING, DocumentModel, EdgeModel, configure
+from arangodantic.operators import Operators
 
 
 # Define models
@@ -127,9 +128,18 @@ async def main():
         async for found_company in cursor:
             print(f"Company: {found_company.company_id}")
 
-    # Supported operators include: "==", "!=", "<", "<=", ">", ">="
+    # Supported operators include (see arangodantic.operators for more):
+    # Operators.EQ (==)
+    # Operators.NE (!=)
+    # Operators.LT (<)
+    # Operators.LTE (<=)
+    # Operators.GT (>)
+    # Operators.GTE (>=)
+    # Operators.IN
+    # Operators.NOT_IN
+    # Operators.ALL_IN
     found_company = await Company.find_one(
-        {"owner.last_name": "Doe", "_id": {"!=": company}}
+        {"owner.last_name": "Doe", "_id": {Operators.NE: company}}
     )
     print(f"Found the company {found_company.key_}")
 

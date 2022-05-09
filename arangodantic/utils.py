@@ -2,6 +2,7 @@ import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from arangodantic.directions import DIRECTIONS
+from arangodantic.operators import array_comparison_operators, comparison_operators
 
 FilterTypes = Optional[Dict[str, Any]]
 SortTypes = Optional[Iterable[Tuple[str, str]]]
@@ -37,21 +38,6 @@ def build_filters(
     filter_list = []
     bind_vars = {}
 
-    # List of supported operators mapped to a-z string representations that can be
-    # used safely in the names of bind_vars in AQL
-    comparison_operators = {
-        "<": "lt",
-        "<=": "lte",
-        ">": "gt",
-        ">=": "gte",
-        "!=": "ne",
-        "==": "eq",
-        "in": "in",
-        "not in": "nin",
-        "contains": "contains",
-        "not contains": "ncontains",
-    }
-
     if filters:
         for i, (field, expr) in enumerate(filters.items()):
             if not isinstance(expr, Dict):
@@ -80,13 +66,11 @@ def build_filters(
                 bind_vars[value_bind_var] = value
 
                 # The actual comparison
-                if operator in {"contains", "not contains"}:
-                    # If we want to check that an array field contains a value,
-                    # we need to reverse the filter sides. "Contains" is kind of a
-                    # reverse IN.
-                    contains_op = "IN" if operator == "contains" else "NOT IN"
+                if operator in array_comparison_operators:
+                    # These operators are checked against the instance.field instead
+                    # of the other way around, e.g. ["foo"] ALL IN i.data.aliases
                     filter_list.append(
-                        f"@{value_bind_var} {contains_op} {instance_name}.{field_str}"
+                        f"@{value_bind_var} {operator} {instance_name}.{field_str}"
                     )
                 else:
                     filter_list.append(
