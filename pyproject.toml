@@ -23,7 +23,7 @@ shylock = ["shylock"]
 [tool.poetry.dev-dependencies]
 isort = "^5.10.1"
 invoke = "^1.7.1"
-mypy = "^0.942"
+mypy = "^0.971"
 flake8 = "^5.0.3"
 pytest = "^7.1.2"
 pydevd-pycharm = "^222.3345.131"
