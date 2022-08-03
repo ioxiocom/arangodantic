@@ -13,12 +13,12 @@ repos:
       # All non-bat files should end with LF
       - id: mixed-line-ending
         name: Ensure LF endings on most files
-        args: [ '--fix=lf' ]
+        args: ["--fix=lf"]
         exclude: \.bat$
       # Bat files should end with CRLF
       - id: mixed-line-ending
         name: Ensure CFLF endings on Windows files
-        args: [ '--fix=crlf' ]
+        args: ["--fix=crlf"]
         files: \.bat$
   - repo: https://github.com/pycqa/isort
     rev: 5.10.1
@@ -32,3 +32,7 @@ repos:
     rev: 4.0.1
     hooks:
       - id: flake8
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v2.7.1
+    hooks:
+      - id: prettier
