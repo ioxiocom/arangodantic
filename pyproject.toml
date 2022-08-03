@@ -21,12 +21,12 @@ shylock = {extras = ["aioarangodb"], version = "^1.1.1", optional = true}
 shylock = ["shylock"]
 
 [tool.poetry.dev-dependencies]
-isort = "^5.5.2"
-invoke = "^1.4.1"
+isort = "^5.10.1"
+invoke = "^1.7.1"
 mypy = "^0.942"
-flake8 = "^3.8.4"
-pytest = "^6.0.2"
-pydevd_pycharm = "^202.7319.37"
+flake8 = "^5.0.3"
+pytest = "^7.1.2"
+pydevd-pycharm = "^222.3345.131"
 pytest-asyncio = "^0.14.0"
 shylock = {extras = ["aioarangodb"], version = "^1.1.1"}
 
