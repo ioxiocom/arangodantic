@@ -1,11 +1,11 @@
 [tool.poetry]
 name = "arangodantic"
-version = "0.2.0"
+version = "0.3.0"
 description = "Database models for ArangoDB using Pydantic base models."
 authors = ["Digital Living International Ltd"]
 license = "BSD-3-Clause"
 readme = "README.md"
-repository = "https://github.com/digitalliving/arangodantic"
+repository = "https://github.com/ioxiocom/arangodantic"
 packages = [
     {include="arangodantic", from="."}
 ]
