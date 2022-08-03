@@ -18,7 +18,6 @@ services:
   - docker
 
 before_install:
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install -U importlib_metadata; fi
   - docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD="" arangodb/arangodb:3.7.2.1
   - pip install poetry pre-commit
 
