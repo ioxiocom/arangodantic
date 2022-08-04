@@ -1,6 +1,6 @@
 # Arangodantic
 
-[![Build Status](https://travis-ci.com/digitalliving/arangodantic.svg?branch=main)](https://travis-ci.com/digitalliving/arangodantic)
+[![Build Status](https://travis-ci.com/ioxiocom/arangodantic.svg?branch=main)](https://travis-ci.com/ioxiocom/arangodantic)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PyPI](https://img.shields.io/pypi/v/arangodantic)](https://pypi.org/project/arangodantic/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/arangodantic)](https://pypi.org/project/arangodantic/)
@@ -21,17 +21,17 @@ pip install arangodantic[shylock]
 
 ## Usage
 
-Define your database models by extending either `DocumentModel` or `EdgeModel`.
-Nested structures can be created by extending pydantic.BaseModel.
+Define your database models by extending either `DocumentModel` or `EdgeModel`. Nested
+structures can be created by extending pydantic.BaseModel.
 
-Configure Arangodantic. You can optionally define a collection name prefix,
-a key generation function and a lock (needed if you want to use the locking
-functionality; [Shylock](https://github.com/lietu/shylock) is supported out of
-the box, any other locking service such as
-[Sherlock](https://pypi.org/project/sherlock/) should at least in theory also
-work).
+Configure Arangodantic. You can optionally define a collection name prefix, a key
+generation function and a lock (needed if you want to use the locking functionality;
+[Shylock](https://github.com/lietu/shylock) is supported out of the box, any other
+locking service such as [Sherlock](https://pypi.org/project/sherlock/) should at least
+in theory also work).
 
 Ensure you have an ArangoDB server available with known credentials
+
 ```bash
 docker run --rm -p 8529:8529 -e ARANGO_ROOT_PASSWORD="" arangodb/arangodb:3.7.2.1
 ```
@@ -156,13 +156,14 @@ if __name__ == "__main__":
     result = loop.run_until_complete(main())
 ```
 
-You might find [migrate-anything](https://github.com/cocreators-ee/migrate-anything) useful for creating and managing collections and indexes.
+You might find [migrate-anything](https://github.com/cocreators-ee/migrate-anything)
+useful for creating and managing collections and indexes.
 
 ## More examples
-- The [graph example](examples/graph_example.py) shows how arangodantic can be
-  used with graphs. Please note that graph related functionality is at the
-  moment really limited and will likely be extended later and might even be
-  restructured, so use with caution.
+
+- The [graph example](examples/graph_example.py) shows how arangodantic can be used with
+  graphs. Please note that graph related functionality is at the moment really limited
+  and will likely be extended later and might even be restructured, so use with caution.
 
 ## License
 

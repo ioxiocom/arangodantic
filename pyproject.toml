@@ -1,18 +1,18 @@
 [tool.poetry]
 name = "arangodantic"
-version = "0.2.0"
+version = "0.3.0"
 description = "Database models for ArangoDB using Pydantic base models."
 authors = ["Digital Living International Ltd"]
 license = "BSD-3-Clause"
 readme = "README.md"
-repository = "https://github.com/digitalliving/arangodantic"
+repository = "https://github.com/ioxiocom/arangodantic"
 packages = [
     {include="arangodantic", from="."}
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.7,<4.0"
-pydantic = "^1.8.2"
+python = ">=3.8,<4.0"
+pydantic = "^1.9.1"
 aioarangodb = "^0.1.2"
 inflection = "^0.5.1"
 shylock = {extras = ["aioarangodb"], version = "^1.1.1", optional = true}
@@ -21,15 +21,18 @@ shylock = {extras = ["aioarangodb"], version = "^1.1.1", optional = true}
 shylock = ["shylock"]
 
 [tool.poetry.dev-dependencies]
-isort = "^5.5.2"
-invoke = "^1.4.1"
-mypy = "^0.942"
-flake8 = "^3.8.4"
-pytest = "^6.0.2"
-pydevd_pycharm = "^202.7319.37"
-pytest-asyncio = "^0.14.0"
+isort = "^5.10.1"
+invoke = "^1.7.1"
+mypy = "^0.971"
+flake8 = "^5.0.3"
+pytest = "^7.1.2"
+pydevd-pycharm = "^222.3345.131"
+pytest-asyncio = "^0.19.0"
 shylock = {extras = ["aioarangodb"], version = "^1.1.1"}
 
 [build-system]
 requires = ["poetry>=1.0.0"]
 build-backend = "poetry.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
