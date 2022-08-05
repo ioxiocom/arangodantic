@@ -13,6 +13,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Switch from Travis CI to GitHub actions.
 
+### Added
+
+- Add back support for Python 3.7.
+
 ## [0.3.0] - 2022-08-04
 
 ### Removed
