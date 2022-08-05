@@ -7,6 +7,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.1] - 2022-08-05
+
+### Changed
+
+- Switch from Travis CI to GitHub actions.
+
 ## [0.3.0] - 2022-08-04
 
 ### Removed
@@ -80,7 +86,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Initial release of Arangodantic
 
-[unreleased]: https://github.com/ioxiocom/arangodantic/compare/0.3.0...HEAD
+[unreleased]: https://github.com/ioxiocom/arangodantic/compare/0.3.1...HEAD
+[0.3.1]: https://github.com/ioxiocom/arangodantic/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/ioxiocom/arangodantic/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/ioxiocom/arangodantic/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/ioxiocom/arangodantic/compare/0.0.4...0.1.0
