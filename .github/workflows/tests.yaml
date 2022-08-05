@@ -16,9 +16,9 @@ jobs:
         python-version: ["3.8", "3.9", "3.10"]
     services:
       arangodb:
-        image: arangodb/arangodb:3.7.2.1
+        image: arangodb/arangodb:3.8
         env:
-          ARANGO_ROOT_PASSWORD: ""
+          ARANGO_NO_AUTH: 1
         ports:
           - 8529:8529
     steps:
