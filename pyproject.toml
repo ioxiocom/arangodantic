@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "arangodantic"
-version = "0.3.0"
+version = "0.3.1"
 description = "Database models for ArangoDB using Pydantic base models."
 authors = ["Digital Living International Ltd"]
 license = "BSD-3-Clause"
@@ -11,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+python = ">=3.7,<4.0"
 pydantic = "^1.9.1"
 aioarangodb = "^0.1.2"
 inflection = "^0.5.1"
