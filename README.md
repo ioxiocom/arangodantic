@@ -1,6 +1,6 @@
 # Arangodantic
 
-[![Build Status](https://travis-ci.com/ioxiocom/arangodantic.svg?branch=main)](https://travis-ci.com/ioxiocom/arangodantic)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/ioxiocom/arangodantic/Build%20and%20upload%20to%20PyPI)](https://github.com/ioxiocom/arangodantic/actions/workflows/publish.yaml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PyPI](https://img.shields.io/pypi/v/arangodantic)](https://pypi.org/project/arangodantic/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/arangodantic)](https://pypi.org/project/arangodantic/)
