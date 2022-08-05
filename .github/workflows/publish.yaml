@@ -9,6 +9,13 @@ jobs:
   build_and_upload:
     name: Build and upload
     runs-on: ubuntu-latest
+    services:
+      arangodb:
+        image: arangodb:3.8
+        env:
+          ARANGO_NO_AUTH: 1
+        ports:
+          - 8529:8529
     steps:
       - name: Checkout 🔁
         uses: actions/checkout@v3
