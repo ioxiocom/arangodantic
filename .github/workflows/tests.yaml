@@ -14,6 +14,13 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10"]
+    services:
+      arangodb:
+        image: arangodb/arangodb:3.7.2.1
+        env:
+          ARANGO_ROOT_PASSWORD: ""
+        ports:
+          - 8529:8529
     steps:
       - name: Checkout 🔁
         uses: actions/checkout@v3
