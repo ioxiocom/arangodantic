@@ -20,6 +20,10 @@ shylock = {extras = ["aioarangodb"], version = "^1.1.1", optional = true}
 [tool.poetry.extras]
 shylock = ["shylock"]
 
+[tool.skjold]
+report_only = false
+sources = ["pyup", "gemnasium"]
+
 [tool.poetry.dev-dependencies]
 isort = "^5.10.1"
 invoke = "^1.7.1"
