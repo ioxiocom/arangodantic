@@ -30,6 +30,10 @@ pydevd-pycharm = "^222.3345.131"
 pytest-asyncio = "^0.19.0"
 shylock = {extras = ["aioarangodb"], version = "^1.1.1"}
 
+[tool.skjold]
+report_only = false
+sources = ["pyup", "gemnasium"]
+
 [build-system]
 requires = ["poetry>=1.0.0"]
 build-backend = "poetry.masonry.api"
