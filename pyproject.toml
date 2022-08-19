@@ -20,9 +20,7 @@ shylock = {extras = ["aioarangodb"], version = "^1.1.1", optional = true}
 [tool.poetry.extras]
 shylock = ["shylock"]
 
-[tool.skjold]
-report_only = false
-sources = ["pyup", "gemnasium"]
+
 
 [tool.poetry.dev-dependencies]
 isort = "^5.10.1"
@@ -33,6 +31,10 @@ pytest = "^7.1.2"
 pydevd-pycharm = "^222.3345.131"
 pytest-asyncio = "^0.19.0"
 shylock = {extras = ["aioarangodb"], version = "^1.1.1"}
+
+[tool.skjold]
+report_only = false
+sources = ["pyup", "gemnasium"]
 
 [build-system]
 requires = ["poetry>=1.0.0"]
