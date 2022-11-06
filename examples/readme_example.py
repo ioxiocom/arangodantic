@@ -97,8 +97,18 @@ async def main():
     # Operators.GT (>)
     # Operators.GTE (>=)
     # Operators.IN
+    # Operators.LIKE
+    # Operators.NOT_LIKE
+    # Operators.REG_MATCH (=~)
+    # Operators.NOT_REG_MATCH (!~)
+    # Operators.NOT (!)
     # Operators.NOT_IN
     # Operators.ALL_IN
+    # Operators.ANY_IN
+    # Operators.NONE_IN
+    # Operators.ALL_(EQ, NE, LT, LTE, GT, GTE) (ALL ==, ALL !=, ALL <, etc.)
+    # Operators.ANY_(EQ, NE, LT, LTE, GT, GTE) (ANY ==, ANY !=, ANY <, etc.)
+    # Operators.NONE_(EQ, NE, LT, LTE, GT, GTE) (NONE ==, NONE !=, NONE <, etc.)
     found_company = await Company.find_one(
         {"owner.last_name": "Doe", "_id": {Operators.NE: company}}
     )
