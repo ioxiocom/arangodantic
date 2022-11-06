@@ -428,23 +428,53 @@ async def test_find_one_with_sort(identity_collection):
 
 
 @pytest.mark.asyncio
-async def test_identity_indexes(identity_collection):
-    await Identity.ensure_indexes()
-    collection = Identity.get_collection()
-    for index_definition in await collection.indexes():
-        if index_definition["type"] in {"primary", "edge"}:
-            continue
+async def test_identity_indexes(configure_db):
+    try:
+        await Identity.ensure_collection()
+        collection = Identity.get_collection()
 
-        if index_definition["type"] == "hash":
-            assert "name" in index_definition["fields"]
+        indexes_before = await collection.indexes()
+        assert len(indexes_before) == 1
+
+        # Ensure the indexes are created
+        await Identity.ensure_indexes()
+
+        indexes_after = await collection.indexes()
+        assert len(indexes_after) == len(indexes_before) + 1
+
+        created_indexes = [
+            index
+            for index in indexes_after
+            if index["type"] == "hash" and index["fields"] == ["name"]
+        ]
+        assert len(created_indexes) == 1
+    finally:
+        await Identity.delete_collection()
 
 
 @pytest.mark.asyncio
-async def test_link_indexes(link_collection):
-    await Link.ensure_indexes()
-    collection = Link.get_collection()
-    for index_definition in await collection.indexes():
-        if index_definition["type"] in {"primary", "edge"}:
-            continue
-        if index_definition["type"] == "hash":
-            assert ["_from", "_to", "type"] == index_definition["fields"]
+async def test_link_indexes(configure_db):
+    try:
+        await Link.ensure_collection()
+        collection = Link.get_collection()
+
+        indexes_before = await collection.indexes()
+        # Here we have the primary index,
+        # and the _from + _to indexes for edges
+        assert len(indexes_before) == 2
+
+        # Ensure the indexes are created
+        await Link.ensure_indexes()
+
+        indexes_after = await collection.indexes()
+        assert len(indexes_after) == len(indexes_before) + 1
+
+        created_indexes = [
+            index
+            for index in indexes_after
+            if index["type"] == "hash" and index["fields"] == ["_from", "_to", "type"]
+        ]
+        assert len(created_indexes) == 1
+
+    finally:
+        await Link.delete_collection()

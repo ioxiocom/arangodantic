@@ -132,6 +132,7 @@ class SecondaryRelationGraph(Graph):
 @pytest.fixture
 async def identity_collection(configure_db):
     await Identity.ensure_collection()
+    await Identity.ensure_indexes()
     yield
     await Identity.delete_collection()
 
@@ -153,6 +154,7 @@ async def identity_bob(identity_collection):
 @pytest.fixture
 async def extended_identity_collection(configure_db):
     await ExtendedIdentity.ensure_collection()
+    await ExtendedIdentity.ensure_indexes()
     yield
     await ExtendedIdentity.delete_collection()
 
@@ -160,6 +162,7 @@ async def extended_identity_collection(configure_db):
 @pytest.fixture
 async def link_collection(configure_db):
     await Link.ensure_collection()
+    await Link.ensure_indexes()
     yield
     await Link.delete_collection()
 

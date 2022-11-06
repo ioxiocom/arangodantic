@@ -275,9 +275,7 @@ class Model(pydantic.BaseModel, ABC):
         cls_config: ArangodanticCollectionConfig = getattr(
             cls, "ArangodanticConfig", ArangodanticCollectionConfig()
         )
-        indexes = None
-        if getattr(cls_config, "indexes", None):
-            indexes = cls_config.indexes
+        indexes = getattr(cls_config, "indexes", None)
 
         if indexes:
             collection = cls.get_collection()

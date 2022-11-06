@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import List, Optional
 
 import pydantic
@@ -5,34 +6,22 @@ from aioarangodb.collection import StandardCollection
 from pydantic import Field
 
 
-class BaseIndex(pydantic.BaseModel):
+class BaseIndex(ABC, pydantic.BaseModel):
     """
     Base index model.
 
-    Defines fields common to most of the indexes. The index class should be derived
-    from this base class, and add the create_index() function which actually creates
+    Define fields common to most of the indexes. The index class should be derived
+    from this base class, and add the add_index() function which actually creates
     the index.
     """
 
     fields: List = Field(..., description="List of fields to index")
-    unique: Optional[bool] = Field(
-        None, description="Whether the index is unique or not."
-    )
-    sparse: Optional[bool] = Field(
-        None,
-        description="If set to True, documents with None in the field are also indexed,"
-        " otherwise they're skipped",
-    )
-    deduplicate: Optional[bool] = Field(
-        None,
-        description="If set to True, inserting duplicate index values from the same "
-        "document triggers unique constraint errors.",
-    )
     name: Optional[str] = Field(None, description="Optional name for the index.")
     in_background: Optional[bool] = Field(
         None, description="Do not hold the collection lock."
     )
 
+    @abstractmethod
     async def add_index(self, collection: StandardCollection):
         """
         Creates the index on the collection.
@@ -50,6 +39,20 @@ class HashIndex(BaseIndex):
     Creates a hash index on the collection.
     """
 
+    unique: Optional[bool] = Field(
+        None, description="Whether the index is unique or not."
+    )
+    sparse: Optional[bool] = Field(
+        None,
+        description="If set to True, documents with None in the field are also indexed,"
+        " otherwise they're skipped",
+    )
+    deduplicate: Optional[bool] = Field(
+        None,
+        description="If set to True, inserting duplicate index values from the same "
+        "document triggers unique constraint errors.",
+    )
+
     async def add_index(self, collection: StandardCollection):
         return await collection.add_hash_index(
             fields=self.fields,
@@ -65,6 +68,20 @@ class SkiplistIndex(BaseIndex):
     """
     Creates a skiplist index on the collection.
     """
+
+    unique: Optional[bool] = Field(
+        None, description="Whether the index is unique or not."
+    )
+    sparse: Optional[bool] = Field(
+        None,
+        description="If set to True, documents with None in the field are also indexed,"
+        " otherwise they're skipped",
+    )
+    deduplicate: Optional[bool] = Field(
+        None,
+        description="If set to True, inserting duplicate index values from the same "
+        "document triggers unique constraint errors.",
+    )
 
     async def add_index(self, collection: StandardCollection):
         return await collection.add_skiplist_index(
@@ -117,6 +134,15 @@ class PersistentIndex(BaseIndex):
     """
     Creates a persistent index on the collection.
     """
+
+    unique: Optional[bool] = Field(
+        None, description="Whether the index is unique or not."
+    )
+    sparse: Optional[bool] = Field(
+        None,
+        description="If set to True, documents with None in the field are also indexed,"
+        " otherwise they're skipped",
+    )
 
     async def add_index(self, collection: StandardCollection):
         return await collection.add_persistent_index(
