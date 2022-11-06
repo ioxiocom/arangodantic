@@ -11,6 +11,7 @@ from shylock import ShylockAioArangoDBBackend
 from shylock import configure as configure_shylock
 
 from arangodantic import DocumentModel, EdgeDefinition, EdgeModel, Graph, configure
+from arangodantic.indexes import HashIndex
 
 HOSTS = "http://localhost:8529"
 USERNAME = "root"
@@ -51,6 +52,9 @@ async def configure_db():
 class Identity(DocumentModel):
     """Dummy identity Arangodantic model."""
 
+    class ArangodanticConfig:
+        indexes = [HashIndex(fields=["name"])]
+
     name: str = ""
 
 
@@ -78,6 +82,9 @@ class ExtendedIdentity(Identity):
 
 class Link(EdgeModel):
     """Dummy Arangodantic edge model."""
+
+    class ArangodanticConfig:
+        indexes = [HashIndex(fields=["_from", "_to", "type"], unique=True)]
 
     type: str
 
@@ -125,6 +132,7 @@ class SecondaryRelationGraph(Graph):
 @pytest.fixture
 async def identity_collection(configure_db):
     await Identity.ensure_collection()
+    await Identity.ensure_indexes()
     yield
     await Identity.delete_collection()
 
@@ -146,6 +154,7 @@ async def identity_bob(identity_collection):
 @pytest.fixture
 async def extended_identity_collection(configure_db):
     await ExtendedIdentity.ensure_collection()
+    await ExtendedIdentity.ensure_indexes()
     yield
     await ExtendedIdentity.delete_collection()
 
@@ -153,6 +162,7 @@ async def extended_identity_collection(configure_db):
 @pytest.fixture
 async def link_collection(configure_db):
     await Link.ensure_collection()
+    await Link.ensure_indexes()
     yield
     await Link.delete_collection()
 
