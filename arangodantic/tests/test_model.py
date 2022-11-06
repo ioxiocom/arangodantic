@@ -13,6 +13,7 @@ from arangodantic import (
     MultipleModelsFoundError,
     UniqueConstraintError,
 )
+from arangodantic.operators import Operators
 from arangodantic.tests.conftest import ExtendedIdentity, Identity, Link, SubModel
 from arangodantic.utils import SortTypes
 
@@ -167,8 +168,8 @@ async def test_find(identity_collection):
 async def test_find_with_comparisons(identity_collection):
     i_a = Identity(name="a")
     i_a2 = Identity(name="a")
-    i_b = Identity(name="b")
-    i_c = Identity(name="c")
+    i_b = Identity(name="b", data={"aliases": ["foo", "bar"]})
+    i_c = Identity(name="c", data={"aliases": ["bar", "baz"]})
 
     await gather(i_a.save(), i_a2.save(), i_b.save(), i_c.save())
 
@@ -178,43 +179,75 @@ async def test_find_with_comparisons(identity_collection):
         async for i in cursor:
             assert i.name == "a"
 
-    cursor = await (Identity.find({"name": {"<": "a"}}, count=True))
+    cursor = await (Identity.find({"name": {Operators.LT: "a"}}, count=True))
     async with cursor:
         assert len(cursor) == 0
 
-    cursor = await (Identity.find({"name": {"<=": "a"}}, count=True))
+    cursor = await (Identity.find({"name": {Operators.LTE: "a"}}, count=True))
     async with cursor:
         assert len(cursor) == 2
         async for i in cursor:
             assert i.name == "a"
 
-    cursor = await (Identity.find({"name": {">": "c"}}, count=True))
+    cursor = await (Identity.find({"name": {Operators.GT: "c"}}, count=True))
     async with cursor:
         assert len(cursor) == 0
 
-    cursor = await (Identity.find({"name": {">": "b"}}, count=True))
+    cursor = await (Identity.find({"name": {Operators.GT: "b"}}, count=True))
     async with cursor:
         assert len(cursor) == 1
         async for i in cursor:
             assert i.name == "c"
 
-    cursor = await (Identity.find({"name": {">=": "b"}}, count=True))
+    cursor = await (Identity.find({"name": {Operators.GTE: "b"}}, count=True))
     async with cursor:
         assert len(cursor) == 2
         async for i in cursor:
             assert i.name in {"b", "c"}
 
-    cursor = await (Identity.find({"name": {">": "a", "<": "c"}}, count=True))
+    cursor = await (
+        Identity.find({"name": {Operators.GT: "a", Operators.LT: "c"}}, count=True)
+    )
     async with cursor:
         assert len(cursor) == 1
         async for i in cursor:
             assert i.name == "b"
 
-    cursor = await (Identity.find({"name": "a", "_id": {"!=": i_a}}, count=True))
+    cursor = await (
+        Identity.find({"name": "a", "_id": {Operators.NE: i_a}}, count=True)
+    )
     async with cursor:
         assert len(cursor) == 1
         async for i in cursor:
             assert i.id_ == i_a2.id_
+
+    cursor = await (Identity.find({"name": {Operators.IN: ["b", "c"]}}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name in {"b", "c"}
+
+    cursor = await (Identity.find({"name": {Operators.NOT_IN: ["a"]}}, count=True))
+    async with cursor:
+        assert len(cursor) == 2
+        async for i in cursor:
+            assert i.name in {"b", "c"}
+
+    cursor = await (
+        Identity.find({"data.aliases": {Operators.ALL_IN: ["foo", "bar"]}}, count=True)
+    )
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.name == "b"
+
+    cursor = await (
+        Identity.find({"data.aliases": {Operators.NONE_IN: ["foo"]}}, count=True)
+    )
+    async with cursor:
+        assert len(cursor) == 1
+        async for i in cursor:
+            assert i.name == "c"
 
 
 @pytest.mark.parametrize(

@@ -2,6 +2,7 @@ import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from arangodantic.directions import DIRECTIONS
+from arangodantic.operators import comparison_operators
 
 FilterTypes = Optional[Dict[str, Any]]
 SortTypes = Optional[Iterable[Tuple[str, str]]]
@@ -36,17 +37,6 @@ def build_filters(
 
     filter_list = []
     bind_vars = {}
-
-    # List of supported operators mapped to a-z string representations that can be
-    # used safely in the names of bind_vars in AQL
-    comparison_operators = {
-        "<": "lt",
-        "<=": "lte",
-        ">": "gt",
-        ">=": "gte",
-        "!=": "ne",
-        "==": "eq",
-    }
 
     if filters:
         for i, (field, expr) in enumerate(filters.items()):
