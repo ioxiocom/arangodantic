@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       arangodb:
-        image: arangodb:3.8
+        image: arangodb:3.11
         env:
           ARANGO_NO_AUTH: 1
         ports:
@@ -23,7 +23,7 @@ jobs:
       - name: Set up Python 🐍
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.11"
 
       - name: Install Poetry and pre-commit 💈
         run: pip install poetry pre-commit

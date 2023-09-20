@@ -1,42 +1,34 @@
 [tool.poetry]
 name = "arangodantic"
-version = "0.3.1"
-description = "Database models for ArangoDB using Pydantic base models."
-authors = ["Digital Living International Ltd"]
+version = "0.4.0"
+description = "Database models for ArangoDB using Pydantic V2 base models."
+authors = ["Digital Living International Ltd", "dasTholo"]
 license = "BSD-3-Clause"
 readme = "README.md"
 repository = "https://github.com/ioxiocom/arangodantic"
 packages = [
     {include="arangodantic", from="."}
 ]
-
 [tool.poetry.dependencies]
-python = ">=3.7,<4.0"
-pydantic = "^1.9.1"
-aioarangodb = "^0.1.2"
+python = "^3.11"
+pydantic = "2.3.0"
+python-arango = "^7.6.2"
 inflection = "^0.5.1"
-shylock = {extras = ["aioarangodb"], version = "^1.1.1", optional = true}
+orjson = "^3.9.7"
+shylock = "^1.2.1"
+asyncer = "^0.0.2"
 
-[tool.poetry.extras]
-shylock = ["shylock"]
 
-[tool.poetry.dev-dependencies]
-isort = "^5.10.1"
-invoke = "^1.7.1"
-mypy = "^0.971"
-flake8 = "^5.0.3"
-pytest = "^7.1.2"
-pydevd-pycharm = "^222.3345.131"
-pytest-asyncio = "^0.19.0"
-shylock = {extras = ["aioarangodb"], version = "^1.1.1"}
-
-[tool.skjold]
-report_only = false
-sources = ["pyup", "gemnasium"]
+[tool.poetry.group.dev.dependencies]
+invoke = "^2.2.0"
+pre-commit = "^3.4.0"
+pytest = "^7.4.2"
+flake8 = "^6.1.0"
+pytest-asyncio = "^0.21.1"
 
 [build-system]
-requires = ["poetry>=1.0.0"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

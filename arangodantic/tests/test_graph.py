@@ -2,6 +2,7 @@ from asyncio import gather
 from uuid import uuid4
 
 import pytest
+from asyncer import asyncify
 
 from arangodantic import GraphNotFoundError, ModelNotFoundError, UniqueConstraintError
 from arangodantic.tests.conftest import (
@@ -67,7 +68,7 @@ async def test_save_through_graph_model_not_found(relation_graph):
 @pytest.mark.asyncio
 async def test_unique_constraint_graph(relation_graph):
     # Create unique index on the "name" field.
-    await Person.get_collection().add_hash_index(fields=["name"], unique=True)
+    await asyncify(Person.get_collection().add_hash_index)(fields=["name"], unique=True)
 
     pre_generated_key = str(uuid4())
 
@@ -155,14 +156,20 @@ async def test_delete_graph(relation_graph):
         assert not await RelationGraph.delete_graph()
     assert not await RelationGraph.delete_graph(ignore_missing=True)
 
-    assert await RelationGraph.get_db().has_collection(Person.get_collection_name())
-    assert await RelationGraph.get_db().has_collection(Relation.get_collection_name())
+    assert await asyncify(RelationGraph.get_db().has_collection)(
+        Person.get_collection_name()
+    )
+    assert await asyncify(RelationGraph.get_db().has_collection)(
+        Relation.get_collection_name()
+    )
 
     await RelationGraph.ensure_graph()
     assert await RelationGraph.delete_graph(drop_collections=True)
     with pytest.raises(GraphNotFoundError):
         assert not await RelationGraph.delete_graph()
-    assert not await RelationGraph.get_db().has_collection(Person.get_collection_name())
-    assert not await RelationGraph.get_db().has_collection(
+    assert not await asyncify(RelationGraph.get_db().has_collection)(
+        Person.get_collection_name()
+    )
+    assert not await asyncify(RelationGraph.get_db().has_collection)(
         Relation.get_collection_name()
     )

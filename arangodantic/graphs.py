@@ -1,38 +1,39 @@
 from abc import ABC
 from functools import lru_cache
-from typing import Dict, List, Optional, Type, Union
+from typing import Type
 
-import aioarangodb.graph
-import pydantic
-from aioarangodb import GraphDeleteError
-from aioarangodb.database import StandardDatabase
-from pydantic import Field
+from arango import (
+    DocumentDeleteError,
+    DocumentInsertError,
+    DocumentReplaceError,
+    GraphDeleteError,
+)
+from arango.database import StandardDatabase
+from arango.errno import DOCUMENT_NOT_FOUND, GRAPH_NOT_FOUND, UNIQUE_CONSTRAINT_VIOLATED
+from arango.graph import Graph
+from asyncer import asyncify
+from pydantic import BaseModel, Field
 
 from arangodantic import GraphNotFoundError, ModelNotFoundError, UniqueConstraintError
-from arangodantic.arangdb_error_codes import (
-    ERROR_ARANGO_DOCUMENT_NOT_FOUND,
-    ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED,
-    ERROR_GRAPH_NOT_FOUND,
-)
 from arangodantic.configurations import CONF
 from arangodantic.models import DocumentModel, EdgeModel, Model
 
 
-class EdgeDefinition(pydantic.BaseModel):
+class EdgeDefinition(BaseModel):
     edge_collection: Type[EdgeModel]
-    from_vertex_collections: List[Type[DocumentModel]]
-    to_vertex_collections: List[Type[DocumentModel]]
+    from_vertex_collections: list[Type[DocumentModel]]
+    to_vertex_collections: list[Type[DocumentModel]]
 
 
-class ArangodanticGraphConfig(pydantic.BaseModel):
-    graph_name: Optional[str] = Field(
+class ArangodanticGraphConfig(BaseModel):
+    graph_name: str | None = Field(
         None, description="Override the name of the graph to use"
     )
-    edge_definitions: Optional[List[EdgeDefinition]] = None
-    orphan_collections: Optional[List[Model]] = None
+    edge_definitions: list[EdgeDefinition] | None = None
+    orphan_collections: list[Model] | None = None
 
 
-class Graph(ABC):
+class GraphModel(ABC):
     @classmethod
     @lru_cache()
     def get_graph_name(cls) -> str:
@@ -50,11 +51,11 @@ class Graph(ABC):
         return CONF.db
 
     @classmethod
-    def get_graph(cls) -> aioarangodb.graph.Graph:
+    def get_graph(cls) -> Graph:
         return cls.get_db().graph(cls.get_graph_name())
 
     @classmethod
-    async def save(cls, model: Union[DocumentModel, EdgeModel], **kwargs):
+    async def save(cls, model: DocumentModel | EdgeModel, **kwargs):
         """
         Save the model through the graph; either creates a new one or updates/replaces
         an existing document.
@@ -67,36 +68,30 @@ class Graph(ABC):
         violation.
         :raise ModelNotFoundError: If any of the models are not found.
         """
-
         graph = cls.get_graph()
 
         if not model.rev_:
-            # Insert new document
+            # insert new document
             if not model.key_ and CONF.key_gen:
                 # Use generator to generate new key
                 model.key_ = str(CONF.key_gen())
-
             await model.before_save(new=True, **kwargs)
-
             data = model.get_arangodb_data()
-            if not model.key_:
-                # Let ArangoDB handle key generation
+            if model.key_ is None:
                 del data["_key"]
-
+                del data["_id"]
             try:
                 collection_name = model.get_collection_name()
                 if isinstance(model, EdgeModel):
-                    response = await graph.insert_edge(
-                        collection=collection_name, edge=data
-                    )
+                    response = await asyncify(graph.insert_edge)(collection_name, data)
                 else:
-                    response = await graph.insert_vertex(
-                        collection=collection_name, vertex=data
+                    response = await asyncify(graph.insert_vertex)(
+                        collection_name, data
                     )
-            except aioarangodb.exceptions.DocumentInsertError as ex:
-                if ex.error_code == ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED:
+            except DocumentInsertError as ex:
+                if ex.error_code == UNIQUE_CONSTRAINT_VIOLATED:
                     raise UniqueConstraintError(ex.error_message)
-                elif ex.error_code == ERROR_ARANGO_DOCUMENT_NOT_FOUND:
+                elif ex.error_code == DOCUMENT_NOT_FOUND:
                     raise ModelNotFoundError(ex.error_message)
                 raise
         else:
@@ -105,13 +100,13 @@ class Graph(ABC):
             data = model.get_arangodb_data()
             try:
                 if isinstance(model, EdgeModel):
-                    response = await graph.replace_edge(edge=data)
+                    response = await asyncify(graph.replace_edge)(data)
                 else:
-                    response = await graph.replace_vertex(vertex=data)
-            except aioarangodb.exceptions.DocumentReplaceError as ex:
-                if ex.error_code == ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED:
+                    response = await asyncify(graph.replace_vertex)(data)
+            except DocumentReplaceError as ex:
+                if ex.error_code == UNIQUE_CONSTRAINT_VIOLATED:
                     raise UniqueConstraintError(ex.error_message)
-                elif ex.error_code == ERROR_ARANGO_DOCUMENT_NOT_FOUND:
+                elif ex.error_code == DOCUMENT_NOT_FOUND:
                     raise ModelNotFoundError(ex.error_message)
                 raise
 
@@ -133,11 +128,11 @@ class Graph(ABC):
         """
         data = document.get_arangodb_data()
         try:
-            result: bool = await cls.get_graph().delete_vertex(
+            result: bool = await asyncify(cls.get_graph().delete_vertex)(
                 data, ignore_missing=ignore_missing
             )
-        except aioarangodb.exceptions.DocumentDeleteError as ex:
-            if ex.error_code == ERROR_ARANGO_DOCUMENT_NOT_FOUND:
+        except DocumentDeleteError as ex:
+            if ex.error_code == DOCUMENT_NOT_FOUND:
                 raise ModelNotFoundError(
                     f"No '{document.__class__.__name__}' found with _key "
                     f"'{document.key_}'"
@@ -160,11 +155,11 @@ class Graph(ABC):
         """
         data = edge.get_arangodb_data()
         try:
-            result: bool = await cls.get_graph().delete_edge(
+            result: bool = await asyncify(cls.get_graph().delete_edge)(
                 data, ignore_missing=ignore_missing
             )
-        except aioarangodb.exceptions.DocumentDeleteError as ex:
-            if ex.error_code == ERROR_ARANGO_DOCUMENT_NOT_FOUND:
+        except DocumentDeleteError as ex:
+            if ex.error_code == DOCUMENT_NOT_FOUND:
                 raise ModelNotFoundError(
                     f"No '{edge.__class__.__name__}' found with _key '{edge.key_}'"
                 )
@@ -174,7 +169,7 @@ class Graph(ABC):
 
     @classmethod
     async def delete(
-        cls, model: Union[DocumentModel, EdgeModel], ignore_missing=False
+        cls, model: DocumentModel | EdgeModel, ignore_missing=False
     ) -> bool:
         """
         Delete a model (edge or vertex) from the graph. This will also ensure all edges
@@ -188,11 +183,9 @@ class Graph(ABC):
         not found and **ignore_missing** was set to True.
         """
         if isinstance(model, EdgeModel):
-            return await cls.delete_edge(edge=model, ignore_missing=ignore_missing)
+            return await cls.delete_edge(model, ignore_missing=ignore_missing)
         else:
-            return await cls.delete_vertex(
-                document=model, ignore_missing=ignore_missing
-            )
+            return await cls.delete_vertex(model, ignore_missing=ignore_missing)
 
     @classmethod
     async def ensure_graph(cls, **kwargs):
@@ -203,10 +196,11 @@ class Graph(ABC):
             cls, "ArangodanticConfig", ArangodanticGraphConfig()
         )
 
-        def get_edge_definitions() -> List[Dict[str, Union[str, List[str]]]]:
+        def get_edge_definitions() -> list[dict[str | list[str]]]:
             edge_definitions = getattr(cls_config, "edge_definitions", None)
             if not edge_definitions:
                 edge_definitions = []
+            # todo check ed as edge_definitions
             return [
                 {
                     "edge_collection": ed.edge_collection.get_collection_name(),
@@ -220,7 +214,7 @@ class Graph(ABC):
                 for ed in edge_definitions
             ]
 
-        def get_orphan_collections() -> List[str]:
+        def get_orphan_collections() -> list[str]:
             orphan_collections = getattr(cls_config, "orphan_collections", None)
             if not orphan_collections:
                 orphan_collections = []
@@ -229,8 +223,8 @@ class Graph(ABC):
         name = cls.get_graph_name()
         db = cls.get_db()
 
-        if not await db.has_graph(name):
-            await db.create_graph(
+        if not await asyncify(db.has_graph)(name):
+            await asyncify(db.create_graph)(
                 name,
                 edge_definitions=get_edge_definitions(),
                 orphan_collections=get_orphan_collections(),
@@ -252,10 +246,10 @@ class Graph(ABC):
         db = cls.get_db()
 
         try:
-            return await db.delete_graph(
+            return await asyncify(db.delete_graph)(
                 name, ignore_missing=ignore_missing, drop_collections=drop_collections
             )
         except GraphDeleteError as ex:
-            if ex.error_code == ERROR_GRAPH_NOT_FOUND:
+            if ex.error_code == GRAPH_NOT_FOUND:
                 raise GraphNotFoundError(f"No graph found with name '{name}'")
             raise

@@ -1,20 +1,22 @@
 import random
 import string
+from os import getenv
 from typing import Optional
 from uuid import uuid4
 
 import pydantic
 import pytest
-from aioarangodb import ArangoClient
+from arango import ArangoClient
+from asyncer import asyncify
 from shylock import AsyncLock as Lock
-from shylock import ShylockAioArangoDBBackend
 from shylock import configure as configure_shylock
 
-from arangodantic import DocumentModel, EdgeDefinition, EdgeModel, Graph, configure
+from arangodantic import DocumentModel, EdgeDefinition, EdgeModel, GraphModel, configure
+from arangodantic.backends.asyncer_python_arango_backend import ShylockAsyncerArangoDBBackend
 
-HOSTS = "http://localhost:8529"
+HOSTS = getenv("HOSTS")
 USERNAME = "root"
-PASSWORD = ""
+PASSWORD = getenv("PASSWORD")
 DATABASE = "test"
 
 
@@ -34,18 +36,20 @@ async def configure_db():
 
     client = ArangoClient(hosts=HOSTS)
     # Connect to "_system" database and create the actual database if it doesn't exist
-    sys_db = await client.db("_system", username=USERNAME, password=PASSWORD)
-    if not await sys_db.has_database(DATABASE):
-        await sys_db.create_database(DATABASE)
+    sys_db = await asyncify(client.db)("_system", username=USERNAME, password=PASSWORD)
+    if not await asyncify(sys_db.has_database)(DATABASE):
+        await asyncify(sys_db.create_database)(DATABASE)
 
-    db = await client.db(DATABASE, username=USERNAME, password=PASSWORD)
-    configure_shylock(await ShylockAioArangoDBBackend.create(db, f"{prefix}-shylock"))
+    db = await asyncify(client.db)(DATABASE, username=USERNAME, password=PASSWORD)
+    configure_shylock(
+        await ShylockAsyncerArangoDBBackend.create(db, f"{prefix}-shylock")
+    )
     configure(db, prefix=f"{prefix}-", key_gen=uuid4, lock=Lock)
 
     yield
 
-    await db.delete_collection(f"{prefix}-shylock")
-    await client.close()
+    await asyncify(db.delete_collection)(f"{prefix}-shylock")
+    await asyncify(client.close)()
 
 
 class Identity(DocumentModel):
@@ -100,7 +104,7 @@ class SecondaryRelation(EdgeModel):
     kind: str
 
 
-class RelationGraph(Graph):
+class RelationGraph(GraphModel):
     class ArangodanticConfig:
         edge_definitions = [
             EdgeDefinition(
@@ -111,7 +115,7 @@ class RelationGraph(Graph):
         ]
 
 
-class SecondaryRelationGraph(Graph):
+class SecondaryRelationGraph(GraphModel):
     class ArangodanticConfig:
         edge_definitions = [
             EdgeDefinition(

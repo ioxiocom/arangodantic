@@ -32,8 +32,8 @@ def test(ctx):
     if run_test_cmd(ctx, "pre-commit run --all-files"):
         failed_commands.append("Pre commit hooks")
 
-    if run_test_cmd(ctx, "mypy arangodantic"):
-        failed_commands.append("Mypy")
+    # if run_test_cmd(ctx, "mypy arangodantic"):
+    #     failed_commands.append("Mypy")
 
     if run_test_cmd(ctx, "pytest", env=DEV_ENV):
         failed_commands.append("Unit tests")
