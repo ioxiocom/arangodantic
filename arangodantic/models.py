@@ -1,22 +1,27 @@
 import textwrap
 from abc import ABC
+from contextlib import asynccontextmanager
+from datetime import datetime
 from functools import lru_cache
-from typing import Optional, Type, TypeVar, Union
+from typing import Optional, Sequence, Type, TypeVar
 
-import aioarangodb.exceptions
-import pydantic
-from aioarangodb.collection import StandardCollection
-from aioarangodb.database import StandardDatabase
-from pydantic import Field
-
-from arangodantic.arangdb_error_codes import (
-    ERROR_ARANGO_DATA_SOURCE_NOT_FOUND,
-    ERROR_ARANGO_DOCUMENT_NOT_FOUND,
-    ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED,
+from arango import (
+    CollectionDeleteError,
+    CollectionTruncateError,
+    DocumentDeleteError,
+    DocumentInsertError,
+    DocumentReplaceError,
 )
-from arangodantic.configurations import CONF
-from arangodantic.cursor import ArangodanticCursor
-from arangodantic.exceptions import (
+from arango.collection import StandardCollection
+from arango.database import StandardDatabase
+from arango.errno import DATA_SOURCE_NOT_FOUND, DOCUMENT_NOT_FOUND
+from arango.typings import Json
+from asyncer import asyncify
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
+
+from arangodantic import (
+    CONF,
+    ArangodanticCursor,
     ConfigError,
     DataSourceNotFound,
     ModelNotFoundError,
@@ -31,30 +36,18 @@ from arangodantic.utils import (
     remove_whitespace_lines,
 )
 
-try:
-    from contextlib import asynccontextmanager  # type: ignore
-except ImportError:
-    from arangodantic.asynccontextmanager import asynccontextmanager
-
 TModel = TypeVar("TModel", bound="Model")
 
 
-class ArangodanticCollectionConfig(pydantic.BaseModel):
+class ArangodanticCollectionConfig(BaseModel):
     collection_name: Optional[str] = Field(
         None, description="Override the name of the collection to use"
     )
 
 
-class Model(pydantic.BaseModel, ABC):
-    """
-    Base model class.
-
-    Implements basic functionality for Pydantic based models, such as save, delete, get
-    etc.
-    """
-
+class Model(BaseModel, ABC):
     key_: Optional[str] = Field(alias="_key")
-    rev_: Optional[str] = Field(alias="_rev")
+    rev_: Optional[str] = Field(alias="_rev", default="")
 
     @property
     def id_(self) -> Optional[str]:
@@ -93,10 +86,9 @@ class Model(pydantic.BaseModel, ABC):
         :return: The model.
         :raise ModelNotFoundError: Raised if no matching document is found.
         """
-        response = await cls.get_collection().get(document={"_key": key})
+        response = await asyncify(cls.get_collection().get)(document={"_key": key})
         if response is None:
             raise ModelNotFoundError(f"No '{cls.__name__}' found with _key '{key}'")
-
         return cls(**response)
 
     async def reload(self) -> None:
@@ -141,40 +133,167 @@ class Model(pydantic.BaseModel, ABC):
         violation.
         """
 
-        if not self.rev_:
+        if self.rev_ == "":
             # Insert new document
-            if not self.key_ and CONF.key_gen:
+            # and not inspect.isclass(EdgeModel)
+
+            if not self.key_ and CONF.key_gen and not isinstance(self, EdgeModel):
                 # Use generator to generate new key
                 self.key_ = str(CONF.key_gen())
 
             await self.before_save(new=True, **kwargs)
-
             data = self.get_arangodb_data()
-            if not self.key_:
+            if self.key_ is None:
                 # Let ArangoDB handle key generation
-                del data["_key"]
-
+                # data.pop("key_", None)
+                del data["_id"]
             try:
-                response = await self.get_collection().insert(document=data)
-            except aioarangodb.exceptions.DocumentInsertError as ex:
-                if ex.error_code == ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED:
-                    raise UniqueConstraintError(ex.error_message)
+                response = await asyncify(self.get_collection().insert)(document=data)
+            except DocumentInsertError as e:
+                if e.error_code == 1210:
+                    raise UniqueConstraintError(
+                        f"Unique constraint violated for '{self.__class__.__name__}'"
+                        f"\n{e.error_message}"
+                    ) from e
                 raise
         else:
             # Update existing document
             await self.before_save(new=False, **kwargs)
             data = self.get_arangodb_data()
             try:
-                response = await self.get_collection().replace(document=data)
-            except aioarangodb.exceptions.DocumentReplaceError as ex:
-                if ex.error_code == ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED:
-                    raise UniqueConstraintError(ex.error_message)
+                response = await asyncify(self.get_collection().update)(document=data)
+            except DocumentReplaceError as e:
+                if e.error_code == 1210:
+                    raise UniqueConstraintError(
+                        f"Unique constraint violated for '{self.__class__.__name__}'"
+                        f"\n{e.error_message}"
+                    ) from e
                 raise
 
         self.key_ = response["_key"]
         self.rev_ = response["_rev"]
 
-    async def delete(self, ignore_missing=False) -> bool:
+    async def before_save(self, new: bool, **kwargs) -> None:
+        """
+        Function that's run before saving, should be overridden in subclasses if needed.
+
+        :param new: Tells if the model is new (will be saved for the first time) or not.
+        """
+        pass
+
+    async def upsert(self, **kwargs):
+        """
+        FIXME
+         Wie kann ich hier die history updaten?
+         ich will nicht mehrer calls machen
+        UPSERT { "_key": @_key }
+        INSERT { "_key": @_key , store: @store, history:[] }
+        UPDATE { history:PUSH(OLD.history, [@store, DATE_NOW()])}
+        in @@collection
+        """
+        await self.before_save(new=False, **kwargs)
+        data = self.get_arangodb_data()
+        if self.rev_ == "":
+            del data["_rev"]
+        del data["_id"]
+        if self.key_ is None:
+            # Let ArangoDB handle key generation
+            del data["_key"]
+
+            # todo hier andere bindvars ohne key_
+            print(f"upsert data ohne key {data}")
+
+        else:
+            print(f"upsert data {data}")
+
+            bind_vars = {
+                "_key": self.key_,
+                "@collection": self.get_collection_name(),
+            }
+            for k, v in data.items():
+                bind_vars["new_data"] = {}
+                bind_vars["new_data"][k] = v
+            print(f"bind_vars: {bind_vars}")
+        # try:
+        #     await asyncify(self.get_db().aql.execute)()
+        # except DocumentInsertError as e:
+        #     if e.error_code == 1210:
+        #         raise UniqueConstraintError(
+        #             f"Unique constraint violated for '{self.__class__.__name__}'"
+        #             f"\n{e.error_message}"
+        #         ) from e
+        #     raise
+
+    @classmethod
+    async def insert_many(cls, documents: list[TModel], **kwargs):
+        # fixme len_sequence == len(response) is not always true
+        #  for loop check if all documents are inserted
+        # todo add Expect Handling
+        len_sequence = len(documents)
+        sequence = []
+        print(f"kwargs: {kwargs}")
+        for doc in documents:
+            sequence.append(doc.get_arangodb_data())
+        print(f"sequence: {sequence}")
+        try:
+            response = await asyncify(cls.get_collection().insert_many)(
+                documents=sequence, **kwargs
+            )
+        except DocumentInsertError as e:
+            if e.error_code == 1210:
+                raise UniqueConstraintError(
+                    f"Unique constraint violated for '{cls.__name__}'"
+                    f"\n{e.error_message}"
+                ) from e
+            raise
+        if len_sequence != len(response):
+            raise UniqueConstraintError(
+                f"Insert Many failed for Unique constraint "
+                f"violated for '{cls.__name__}'"
+                f"\nlen documents was:{len_sequence}"
+                f"\nlen response was:{len(response)}"
+            )
+        print(f"many insert response: {response}")
+
+    @classmethod
+    async def update_many(cls, documents: list[TModel], **kwargs):
+        # todo add Expect Handling
+        sequence = []
+        for doc in documents:
+            sequence.append(doc.get_arangodb_data())
+        try:
+            response = await asyncify(cls.get_collection().update_many)(
+                documents=sequence, **kwargs
+            )
+
+        except DocumentInsertError as e:
+            if e.error_code == 1210:
+                raise UniqueConstraintError(
+                    f"Unique constraint violated for '{cls.__name__}'"
+                    f"\n{e.error_message}"
+                ) from e
+            raise
+        print(f"many update response: {response}")
+
+    @classmethod
+    async def get_many(cls, documents: Sequence[str | Json]):
+        """
+        Return multiple documents ignoring any missing ones.
+
+        :param documents: List of document keys, IDs or bodies. Document bodies
+            must contain the "_id" or "_key" fields.
+        :type documents: [str | dict]
+        :param allow_dirty_read: Allow reads from followers in a cluster.
+        :type allow_dirty_read: bool | None
+        :return: Documents. Missing ones are not included.
+        :rtype: [dict]
+        :raise arango.exceptions.DocumentGetError: If retrieval fails.
+        """
+        results = await asyncify(cls.get_collection().get_many)(documents=documents)
+
+        return results
+
+    async def delete(self, ignore_missing=False) -> None:
         """
         Delete the document.
 
@@ -187,46 +306,17 @@ class Model(pydantic.BaseModel, ABC):
 
         data = self.get_arangodb_data()
         try:
-            result: bool = await self.get_collection().delete(
+            result = await asyncify(self.get_collection().delete)(
                 document=data, silent=True, ignore_missing=ignore_missing
             )
-        except aioarangodb.exceptions.DocumentDeleteError as ex:
-            if ex.error_code == ERROR_ARANGO_DOCUMENT_NOT_FOUND:
+        except DocumentDeleteError as ex:
+            if ex.error_code == DOCUMENT_NOT_FOUND:
                 raise ModelNotFoundError(
                     f"No '{self.__class__.__name__}' found with _key '{self.key_}'"
-                )
+                ) from ex
             raise
 
         return result
-
-    def get_arangodb_data(self) -> dict:
-        """
-        Get a dictionary of the data to pass on to ArangoDB when inserting, updating and
-        deleting the document.
-        """
-        data = self.dict(by_alias=True)
-        data["_id"] = self.id_
-        return data
-
-    @classmethod
-    def get_db(cls) -> StandardDatabase:
-        return CONF.db
-
-    @classmethod
-    @lru_cache()
-    def get_collection_name(cls) -> str:
-        cls_config: ArangodanticCollectionConfig = getattr(
-            cls, "ArangodanticConfig", ArangodanticCollectionConfig()
-        )
-        if getattr(cls_config, "collection_name", None):
-            collection = cls_config.collection_name
-        else:
-            collection = CONF.collection_generator(cls)  # type: ignore
-        return f"{CONF.prefix}{collection}"
-
-    @classmethod
-    def get_collection(cls) -> StandardCollection:
-        return cls.get_db().collection(cls.get_collection_name())
 
     @classmethod
     async def ensure_collection(cls, *args, **kwargs):
@@ -236,8 +326,12 @@ class Model(pydantic.BaseModel, ABC):
         name = cls.get_collection_name()
         db = cls.get_db()
 
-        if not await db.has_collection(name):
-            await db.create_collection(name, *args, **kwargs)
+        if not await asyncify(db.has_collection)(name):
+            await asyncify(db.create_collection)(name, *args, **kwargs)
+
+    @classmethod
+    def get_collection(cls) -> StandardCollection:
+        return cls.get_db().collection(cls.get_collection_name())
 
     @classmethod
     async def delete_collection(cls, ignore_missing: bool = True):
@@ -252,14 +346,14 @@ class Model(pydantic.BaseModel, ABC):
         db = cls.get_db()
 
         try:
-            return await db.delete_collection(
+            return await asyncify(db.delete_collection)(
                 name, ignore_missing=ignore_missing, system=False
             )
-        except aioarangodb.CollectionDeleteError as ex:
-            if ex.error_code == ERROR_ARANGO_DATA_SOURCE_NOT_FOUND:
+        except CollectionDeleteError as ex:
+            if ex.error_code == DATA_SOURCE_NOT_FOUND:
                 raise DataSourceNotFound(
-                    f"No collection found with name {cls.get_collection_name()}"
-                )
+                    f"No collection found with name {name}"
+                ) from ex
             raise
 
     @classmethod
@@ -274,27 +368,20 @@ class Model(pydantic.BaseModel, ABC):
         **ignore_missing** is set to False.
         """
         try:
-            await cls.get_collection().truncate()
-        except aioarangodb.CollectionTruncateError as ex:
-            if ex.error_code == ERROR_ARANGO_DATA_SOURCE_NOT_FOUND:
+            await asyncify(cls.get_collection().truncate)()
+        except CollectionTruncateError as ex:
+            if ex.error_code == DATA_SOURCE_NOT_FOUND:
                 if ignore_missing:
                     return False
                 else:
                     raise DataSourceNotFound(
-                        f"No collection found with name {cls.get_collection_name()}"
-                    )
+                        f"No '{cls.__name__}' collection found "
+                        f"with name '{cls.get_collection_name()}'"
+                    ) from ex
             else:
                 raise
 
         return True
-
-    async def before_save(self, new: bool, **kwargs) -> None:
-        """
-        Function that's run before saving, should be overridden in subclasses if needed.
-
-        :param new: Tells if the model is new (will be saved for the first time) or not.
-        """
-        pass
 
     @classmethod
     async def find(
@@ -364,7 +451,7 @@ class Model(pydantic.BaseModel, ABC):
         )
         bind_vars["@collection"] = cls.get_collection_name()
 
-        cursor = await cls.get_db().aql.execute(
+        cursor = await asyncify(cls.get_db().aql.execute)(
             query,
             count=count,
             bind_vars=bind_vars,
@@ -402,9 +489,79 @@ class Model(pydantic.BaseModel, ABC):
                 raise MultipleModelsFoundError(
                     f"Multiple '{cls.__name__}' matched given filters"
                 )
-            return results[0]
+            return cls(**results[0])
         except IndexError:
             raise ModelNotFoundError(f"No '{cls.__name__}' matched given filters")
+
+    @classmethod
+    async def all(
+        cls, limit: int | None = None, skip: int | None = None
+    ) -> list[ArangodanticCursor]:
+        """
+        Return all documents in the collection.
+
+        :param skip: Number of documents to skip.
+        :type skip: int | None
+        :param limit: Max number of documents returned.
+        :type limit: int | None
+        :return: Document cursor list.
+        :rtype: arango.cursor.Cursor
+        :raise arango.exceptions.DocumentGetError: If retrieval fails.
+
+        """
+        cursor = await asyncify(cls.get_collection().all)(limit=limit, skip=skip)
+        return await ArangodanticCursor(cls, cursor).to_list()
+
+    @classmethod
+    async def keys(cls) -> list[ArangodanticCursor]:
+        """
+        Return all document keys in the collection.
+
+        :return: Document keys.
+        :rtype: list[str]
+        :raise arango.exceptions.DocumentGetError: If retrieval fails.
+
+        """
+        cursor = await asyncify(cls.get_collection().keys)()
+        return await ArangodanticCursor(cls, cursor).to_list()
+
+    @classmethod
+    async def ids(cls) -> list[ArangodanticCursor]:
+        """
+        Return all document ids in the collection.
+
+        :return: Document ids.
+        :rtype: list[str]
+        :raise arango.exceptions.DocumentGetError: If retrieval fails.
+
+        """
+        cursor = await asyncify(cls.get_collection().ids)()
+        return await ArangodanticCursor(cls, cursor).to_list()
+
+    @classmethod
+    def get_db(cls) -> StandardDatabase:
+        return CONF.db
+
+    @classmethod
+    @lru_cache()
+    def get_collection_name(cls) -> str:
+        cls_config: ArangodanticCollectionConfig = getattr(
+            cls, "ArangodanticConfig", ArangodanticCollectionConfig()
+        )
+        if getattr(cls_config, "collection_name", None):
+            collection = cls_config.collection_name
+        else:
+            collection = CONF.collection_generator(cls)  # type: ignore
+        return f"{CONF.prefix}{collection}"
+
+    def get_arangodb_data(self) -> dict:
+        """
+        Get a dictionary of the data to pass on to ArangoDB when inserting, updating and
+        deleting the document.
+        """
+        data = self.model_dump(by_alias=True)
+        data["_id"] = self.id_
+        return data
 
 
 class DocumentModel(Model, ABC):
@@ -412,17 +569,56 @@ class DocumentModel(Model, ABC):
     Base document model class.
     """
 
+    key_: str = Field(alias="_key", default=None)
+    time_created: datetime | None = None
+    time_updated: datetime | None = None
+
+    model_config = ConfigDict(ser_json_timedelta="iso8601")
+
+    @field_serializer("time_created", "time_updated")
+    def serialize_dt(self, dt: datetime, _info):
+        if dt is None:
+            return
+        if not isinstance(dt, float):
+            return int(dt.timestamp() * 1000)
+        return int(dt * 1000)
+
+    @classmethod
+    async def get_document_attributes_set(cls, attribute: str) -> dict:
+        attribute_set = set()
+        organisations = await (await cls.find({attribute: {"!=": None}})).to_list()
+        for commitments in organisations:
+            attribute_set.add(commitments[attribute])
+        return {"count": len(attribute_set), "results": attribute_set}
+
+    @classmethod
+    async def get_document_attributes(cls, attribute: str, value):
+        res = await (await cls.find({attribute: value})).to_list()
+        return {"count": len(res), "results": res}
+
 
 class EdgeModel(Model, ABC):
     """
     Base edge model class.
+    Todo add replace and many
     """
 
-    from_: Union[str, DocumentModel] = Field(alias="_from")
-    to_: Union[str, DocumentModel] = Field(alias="_to")
+    key_: str | None = Field(alias="_key", default=None)
+    from_: str | DocumentModel = Field(alias="_from")
+    to_: str | DocumentModel = Field(alias="_to")
+
+    # @field_serializer("key_")
+    # def serialize_key(self, key, _info):
+    #     print(f"info {_info}")
+    #     if key is None:
+    #         return
+    #     elif isinstance(key, uuid.UUID):
+    #         return str(uuid)
+    #     else:
+    #         return key
 
     @property
-    def from_key_(self) -> Optional[str]:
+    def from_key_(self) -> str | None:
         if self.from_ is None:
             return None
         elif isinstance(self.from_, DocumentModel):
@@ -431,7 +627,7 @@ class EdgeModel(Model, ABC):
             return self.from_.rsplit("/", maxsplit=1)[1]
 
     @property
-    def to_key_(self) -> Optional[str]:
+    def to_key_(self) -> str | None:
         if self.to_ is None:
             return None
         elif isinstance(self.to_, DocumentModel):
@@ -444,8 +640,17 @@ class EdgeModel(Model, ABC):
         Get a dictionary of the data to pass on to ArangoDB when inserting, updating and
         deleting the document.
         """
-        data = self.dict(by_alias=True, exclude={"from_", "to_"})
-        data["_id"] = self.id_
+        data = self.model_dump(by_alias=True, exclude={"from_", "to_", "_key"})
+        # print(f"daaata {data}")
+        if self.key_ is None:
+            data.pop("_key", None)
+        else:
+            data["_key"] = self.key_
+        if self.rev_ != "":
+            data["_id"] = self.id_
+        else:
+            data["_id"] = None
+
         if isinstance(self.from_, DocumentModel):
             data["_from"] = self.from_.id_
         else:
@@ -455,12 +660,21 @@ class EdgeModel(Model, ABC):
             data["_to"] = self.to_.id_
         else:
             data["_to"] = self.to_
-
+        # print(f"daaata edge {data}")
         return data
 
     @classmethod
     async def ensure_collection(cls, *args, **kwargs):
         """
-        Ensure the collection exists and create it if needed.
+        Ensure the Edge-collection exists and create it if needed.
         """
-        return await super(EdgeModel, cls).ensure_collection(edge=True, *args, **kwargs)
+        return await super(EdgeModel, cls).ensure_collection(
+            edge=True, user_keys=False, *args, **kwargs
+        )
+
+    # @classmethod
+    # async def insert_many(cls, documents: list):
+    #     manys = []
+    #     for document in documents:
+    #         manys.append(document.get_arangodb_data())
+    #     return await super(EdgeModel, cls).insert_many(manys)

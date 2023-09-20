@@ -1,20 +1,22 @@
 import asyncio
 from asyncio import gather
+from os import getenv
 from uuid import uuid4
 
-from aioarangodb import ArangoClient
+from arango import ArangoClient
+from asyncer import asyncify, create_task_group
 from shylock import AsyncLock as Lock
-from shylock import ShylockAioArangoDBBackend
 from shylock import configure as configure_shylock
 
 from arangodantic import (
     DocumentModel,
     EdgeDefinition,
     EdgeModel,
-    Graph,
+    GraphModel,
     ModelNotFoundError,
     configure,
 )
+from arangodantic.backends.asyncer_python_arango_backend import ShylockAsyncerArangoDBBackend
 
 
 # Define models
@@ -37,7 +39,7 @@ class SecondaryRelation(EdgeModel):
 
 
 # Define the graph
-class RelationGraph(Graph):
+class RelationGraph(GraphModel):
     class ArangodanticConfig:
         edge_definitions = [
             EdgeDefinition(
@@ -50,27 +52,31 @@ class RelationGraph(Graph):
 
 async def main():
     # Configure the database settings
-    hosts = "http://localhost:8529"
-    username = "root"
-    password = ""
+    hosts = getenv("HOSTS")
+    username = getenv("USERNAME")
+    password = getenv("PASSWORD")
     database = "example"
     prefix = "example-"
 
     client = ArangoClient(hosts=hosts)
     # Connect to "_system" database and create the actual database if it doesn't exist
     # Only for demo, you likely want to create the database in advance.
-    sys_db = await client.db("_system", username=username, password=password)
-    if not await sys_db.has_database(database):
-        await sys_db.create_database(database)
+    sys_db = await asyncify(client.db)("_system", username=username, password=password)
+    if not await asyncify(sys_db.has_database)(database):
+        await asyncify(sys_db.create_database)(database)
 
     # Configure Arangodantic and Shylock
-    db = await client.db(database, username=username, password=password)
-    configure_shylock(await ShylockAioArangoDBBackend.create(db, f"{prefix}shylock"))
+    db = await asyncify(client.db)(database, username=username, password=password)
+    configure_shylock(
+        await ShylockAsyncerArangoDBBackend.create(db, f"{prefix}shylock")
+    )
     configure(db, prefix=prefix, key_gen=uuid4, lock=Lock)
 
     # Create the graph (it'll also create the collections)
     # Only for demo, you likely want to create the graph in advance.
-    await RelationGraph.ensure_graph()
+    async with create_task_group() as tg:
+        tg.soonify(Person.ensure_collection)()
+        tg.soonify(RelationGraph.ensure_graph)()
 
     # Let's create some example persons
     alice = Person(name="Alice")
@@ -79,15 +85,18 @@ async def main():
     await gather(alice.save(), bob.save(), malory.save())
 
     ab = Relation(_from=alice, _to=bob, kind="BFF")
+    # named EdgeModel _key
+    # ab.key_ = "1"
+
     await ab.save()
     am = Relation(_from=alice, _to=malory, kind="hates")
     await am.save()
-
+    #
     # Deleting using the model will tell ArangoDB to delete the item from the collection
     await malory.delete()
     # ... this won't delete any edges to/from the model.
     await am.reload()
-
+    #
     # Deleting through the graph will tell ArangoDB to delete from the graph
     await RelationGraph.delete(bob)
     # ... in this case ArangoDB will delete any edges to/from the model.
@@ -99,9 +108,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    # Starting from Python 3.7 ->
-    # asyncio.run(main())
-
-    # Compatible with Python 3.6 ->
-    loop = asyncio.get_event_loop()
-    result = loop.run_until_complete(main())
+    asyncio.run(main())

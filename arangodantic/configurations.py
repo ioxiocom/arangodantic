@@ -1,11 +1,12 @@
 from typing import Callable, Optional
 
-from aioarangodb.database import StandardDatabase
+from arango.database import StandardDatabase
 from inflection import pluralize, underscore
 from pydantic import BaseModel
+from shylock.backends import ShylockAsyncBackend, ShylockSyncBackend
 
 
-class Configuration(BaseModel):
+class Configuration(BaseModel, arbitrary_types_allowed=True):
     """
     Provide storage for global configurations.
     """
@@ -16,13 +17,11 @@ class Configuration(BaseModel):
     collection_generator: Optional[Callable] = None
     graph_generator: Optional[Callable] = None
     lock: Optional[Callable] = None
-    lock_name_prefix = "arangodantic_"
-
-    class Config:
-        arbitrary_types_allowed = True
+    lock_name_prefix: str = "arangodantic_"
 
 
 CONF = Configuration()
+BACKEND: ShylockAsyncBackend | ShylockSyncBackend | None = None
 
 
 def pluralize_underscore_class(cls: Callable) -> str:
@@ -43,6 +42,15 @@ def underscore_class(cls: Callable) -> str:
     :return: The underscored name of the class.
     """
     return underscore(cls.__name__)
+
+
+def configure_shylock(backend: ShylockAsyncBackend | ShylockSyncBackend):
+    """
+    Configure default backend to use
+    :param backend: The ready to use backend
+    """
+    global BACKEND
+    BACKEND = backend
 
 
 def configure(

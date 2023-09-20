@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2023-09-12
+- Switch to [Pydantic v2](https://docs.pydantic.dev/latest/)
+- switch to python-arango because aioarango not maintained since 2 years
+- add asyncer for [async](https://asyncer.tiangolo.com/) code calls
+- rewrite tests to asyncer
+
+### Todo 0.4.0
+- add poetry
+- rework tasks.py (neccessary with ruff?)
+- rework setup.cfg (neccessary with ruff?)
 
 ## [0.3.1] - 2022-08-05
 
